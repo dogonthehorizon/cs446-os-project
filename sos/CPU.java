@@ -72,6 +72,11 @@ public class CPU
      * @see RAM
      **/
     private RAM m_RAM = null;
+    
+    /**
+     * The initial address of the stack
+     **/
+    private int m_stackSize = 0;
 
     //======================================================================
     //Methods
@@ -266,6 +271,7 @@ public class CPU
     //<insert method header here>
     public void run()
     {
+    	m_stackSize = getSP();
     	while(m_registers[PC] < m_registers[LIM]) {
     		int[] inst = m_RAM.fetch(getPC());
     		
@@ -306,7 +312,7 @@ public class CPU
     			//default case?
     			
     		} //switch
-    		setPC(getPC()+4);
+    		setPC(getPC()+INSTRSIZE);
     	} //while
     }//run
     
@@ -335,29 +341,40 @@ public class CPU
     }//copyHelper
     
     private void branchHelper(int arg1) {
-    	
+    	checkRAM(arg1);
+    	setPC(arg1-3);
     }//branchHelper
     
     private void bneHelper(int arg1, int arg2, int arg3) {
     	if (m_registers[arg1] != m_registers[arg2]) {
-    		//set address to arg3
+    		checkRAM(arg3);
+    		// Our PC starts at 1, and we need to offset this command before
+    		// we increment the PC in the main switch statement
+    		setPC(arg3-3);
     	}
     }//bneHelper
     
     private void bltHelper(int arg1, int arg2, int arg3) {
     	if (m_registers[arg1] < m_registers[arg2]){
-    		//set address to arg3
+    		checkRAM(arg3);
+    		setPC(arg3-3);
     	}
     }//bltHelper
     
 	private void popHelper(int arg1) {
-		m_registers[arg1] = getSP();
-		m_registers[SP]--;
+		if (getSP() < m_stackSize) {
+			System.out.println("Accessing stack at invalid memory address " + getSP());
+			System.exit(-1);
+		}
+		// Do we need to check stacksize anywhere else?
+		m_registers[arg1] = m_RAM.read(getSP());
+		setSP(getSP() - 1);
 	}//popHelper
 	
 	private void pushHelper(int arg1) {
-		m_registers[SP]++;
-		setSP(arg1);
+		setSP(getSP()+1);
+		checkRAM(getSP());
+		m_RAM.write(getSP(), arg1);
 	}//pushHelper
 	
 	private void loadHelper(int arg1, int arg2) {
@@ -372,7 +389,7 @@ public class CPU
 
 	private void checkRAM (int addr){
 		if ((addr > m_registers[LIM]) || (addr < m_registers[BASE])) {
-			System.out.println("Error: Invalid memory accessed at " + m_registers[addr] + ", the PC was " + PC + ".");
+			System.out.println("Error: Invalid memory accessed at " + addr + ", the PC was " + PC + ".");
 			System.exit(-1);
 		}
 	}//checkRAM

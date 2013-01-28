@@ -107,7 +107,9 @@ public class SOS
         	addr++;
         	m_RAM.write(addr, i);
         }
+        
         m_CPU.setPC(m_CPU.getBASE() + 1);
+        m_CPU.setSP(allocSize - (allocSize/3));
     }//createProcess
         
     /*======================================================================
