@@ -1,3 +1,5 @@
 # ASM and zip files should be ignored
 *.asm
 *.zip
+.metadata
+cs446-os-project

@@ -59,7 +59,7 @@ public class CPU
     /**
      * specifies whether the CPU should output details of its work
      **/
-    private boolean m_verbose = false;
+    private boolean m_verbose = true;
 
     /**
      * This array contains all the registers on the "chip".
@@ -266,8 +266,114 @@ public class CPU
     //<insert method header here>
     public void run()
     {
-        //%%% WRITE THIS METHOD and any related helper methods.  %%%
-        
+    	while(m_registers[PC] < m_registers[LIM]) {
+    		int[] inst = m_RAM.fetch(getPC());
+    		
+    		if(m_verbose){
+    			regDump();
+    			printInstr(inst);
+    		}
+    		
+    		switch(inst[0]){
+    			case SET: setHelper(inst[1], inst[2]);
+    				break;
+    			case ADD: addHelper(inst[1], inst[2], inst[3]);
+    				break;
+    			case SUB: subHelper(inst[1], inst[2], inst[3]);
+    				break;
+    			case MUL: mulHelper(inst[1], inst[2], inst[3]);
+    				break;
+    			case DIV: divHelper(inst[1], inst[2], inst[3]);
+    				break;
+    			case COPY: copyHelper(inst[1], inst[2]);
+    				break;
+    			case BRANCH: branchHelper(inst[1]);
+    				break;
+    			case BNE: bneHelper(inst[1], inst[2], inst[3]);
+    				break;
+    			case BLT: bltHelper(inst[1], inst[2], inst[3]);
+    				break;
+    			case POP: popHelper(inst[1]);
+    				break;
+    			case PUSH: pushHelper(inst[1]);
+    				break;
+    			case LOAD: loadHelper(inst[1], inst[2]);
+    				break;
+    			case SAVE: saveHelper(inst[1], inst[2]);
+    				break;
+    			case TRAP: return;//trapHelper();
+    				//break;
+    			//default case?
+    			
+    		} //switch
+    		setPC(getPC()+4);
+    	} //while
     }//run
     
+    private void setHelper(int arg1, int arg2) {
+    	m_registers[arg1] = arg2;
+    } //setHelper
+    
+    private void addHelper(int arg1, int arg2, int arg3) {
+    	m_registers[arg1] = m_registers[arg2] + m_registers[arg3];
+    } //addHelper
+    
+    private void subHelper(int arg1, int arg2, int arg3) {
+    	m_registers[arg1] = m_registers[arg2] - m_registers[arg3];
+    }//subHelper
+    
+    private void mulHelper(int arg1, int arg2, int arg3) {
+    	m_registers[arg1] = m_registers[arg2] * m_registers[arg3];
+    } //mulHelper
+    
+    private void divHelper(int arg1, int arg2, int arg3) {
+    	m_registers[arg1] = m_registers[arg2] / m_registers[arg3];
+    } //divHelper
+    
+    private void copyHelper(int arg1, int arg2) {
+    	m_registers[arg1] = m_registers[arg2];
+    }//copyHelper
+    
+    private void branchHelper(int arg1) {
+    	
+    }//branchHelper
+    
+    private void bneHelper(int arg1, int arg2, int arg3) {
+    	if (m_registers[arg1] != m_registers[arg2]) {
+    		//set address to arg3
+    	}
+    }//bneHelper
+    
+    private void bltHelper(int arg1, int arg2, int arg3) {
+    	if (m_registers[arg1] < m_registers[arg2]){
+    		//set address to arg3
+    	}
+    }//bltHelper
+    
+	private void popHelper(int arg1) {
+		m_registers[arg1] = getSP();
+		m_registers[SP]--;
+	}//popHelper
+	
+	private void pushHelper(int arg1) {
+		m_registers[SP]++;
+		setSP(arg1);
+	}//pushHelper
+	
+	private void loadHelper(int arg1, int arg2) {
+		checkRAM(m_registers[arg2]);
+		m_registers[arg1] = m_RAM.read(m_registers[arg2]);
+	}//loadHelper
+	
+	private void saveHelper(int arg1, int arg2) {
+		checkRAM(m_registers[arg1]);
+		m_RAM.write(m_registers[arg2], m_registers[arg1]);
+	} //saveHelper  
+
+	private void checkRAM (int addr){
+		if ((addr > m_registers[LIM]) || (addr < m_registers[BASE])) {
+			System.out.println("Error: Invalid memory accessed at " + m_registers[addr] + ", the PC was " + PC + ".");
+			System.exit(-1);
+		}
+	}//checkRAM
 };//class CPU

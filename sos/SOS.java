@@ -96,11 +96,18 @@ public class SOS
      */
 
     //insert method header here
-    public void createProcess(Program prog, int allocSize)
-    {
-        //%%%WRITE THIS METHOD and any helper methods you deem necessary.%%%
+    public void createProcess(Program prog, int allocSize) { 
+        int[] inst = prog.export();
         
+        m_CPU.setBASE(0);
+        m_CPU.setLIM(m_CPU.getBASE() + allocSize);
         
+        int addr = m_CPU.getBASE();
+        for(int i : inst) {
+        	addr++;
+        	m_RAM.write(addr, i);
+        }
+        m_CPU.setPC(m_CPU.getBASE() + 1);
     }//createProcess
         
     /*======================================================================
