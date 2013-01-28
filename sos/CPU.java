@@ -76,7 +76,7 @@ public class CPU
     /**
      * The initial address of the stack
      **/
-    private int m_stackSize = 0;
+    private int m_stackAddress = 0;
 
     //======================================================================
     //Methods
@@ -271,7 +271,7 @@ public class CPU
     //<insert method header here>
     public void run()
     {
-    	m_stackSize = getSP();
+    	m_stackAddress = getSP();
     	while(m_registers[PC] < m_registers[LIM]) {
     		int[] inst = m_RAM.fetch(getPC());
     		
@@ -362,7 +362,7 @@ public class CPU
     }//bltHelper
     
 	private void popHelper(int arg1) {
-		if (getSP() < m_stackSize) {
+		if (getSP() < m_stackAddress) {
 			System.out.println("Accessing stack at invalid memory address " + getSP());
 			System.exit(-1);
 		}
@@ -374,7 +374,7 @@ public class CPU
 	private void pushHelper(int arg1) {
 		setSP(getSP()+1);
 		checkRAM(getSP());
-		m_RAM.write(getSP(), arg1);
+		m_RAM.write(getSP(), m_registers[arg1]);
 	}//pushHelper
 	
 	private void loadHelper(int arg1, int arg2) {
@@ -384,6 +384,7 @@ public class CPU
 	
 	private void saveHelper(int arg1, int arg2) {
 		checkRAM(m_registers[arg1]);
+		System.out.println("We're about to save something at address " + m_registers[arg2]);
 		m_RAM.write(m_registers[arg2], m_registers[arg1]);
 	} //saveHelper  
 
