@@ -4,394 +4,471 @@ import java.util.*;
 
 /**
  * This class is the centerpiece of a simulation of the essential hardware of a
- * microcomputer.  This includes a processor chip, RAM and I/O devices.  It is
+ * microcomputer. This includes a processor chip, RAM and I/O devices. It is
  * designed to demonstrate a simulated operating system (SOS).
- *
+ * 
+ * @author Fernando Freire
+ * @author Carl Lulay
+ * 
  * @see RAM
  * @see SOS
  * @see Program
  * @see Sim
+ * 
  */
 
-public class CPU
-{
-    
-    //======================================================================
-    //Constants
-    //----------------------------------------------------------------------
+public class CPU {
 
-    //These constants define the instructions available on the chip
-    public static final int SET    = 0;    /* set value of reg */
-    public static final int ADD    = 1;    // put reg1 + reg2 into reg3
-    public static final int SUB    = 2;    // put reg1 - reg2 into reg3
-    public static final int MUL    = 3;    // put reg1 * reg2 into reg3
-    public static final int DIV    = 4;    // put reg1 / reg2 into reg3
-    public static final int COPY   = 5;    // copy reg1 to reg2
-    public static final int BRANCH = 6;    // goto address in reg
-    public static final int BNE    = 7;    // branch if not equal
-    public static final int BLT    = 8;    // branch if less than
-    public static final int POP    = 9;    // load value from stack
-    public static final int PUSH   = 10;   // save value to stack
-    public static final int LOAD   = 11;   // load value from heap
-    public static final int SAVE   = 12;   // save value to heap
-    public static final int TRAP   = 15;   // system call
-    
-    //These constants define the indexes to each register
-    public static final int R0   = 0;     // general purpose registers
-    public static final int R1   = 1;
-    public static final int R2   = 2;
-    public static final int R3   = 3;
-    public static final int R4   = 4;
-    public static final int PC   = 5;     // program counter
-    public static final int SP   = 6;     // stack pointer
-    public static final int BASE = 7;     // bottom of currently accessible RAM
-    public static final int LIM  = 8;     // top of accessible RAM
-    public static final int NUMREG = 9;   // number of registers
+	// ======================================================================
+	// Constants
+	// ----------------------------------------------------------------------
 
-    //Misc constants
-    public static final int NUMGENREG = PC; // the number of general registers
-    public static final int INSTRSIZE = 4;  // number of ints in a single instr +
-                                            // args.  (Set to a fixed value for simplicity.)
+	// These constants define the instructions available on the chip
+	public static final int SET = 0; /* set value of reg */
+	public static final int ADD = 1; // put reg1 + reg2 into reg3
+	public static final int SUB = 2; // put reg1 - reg2 into reg3
+	public static final int MUL = 3; // put reg1 * reg2 into reg3
+	public static final int DIV = 4; // put reg1 / reg2 into reg3
+	public static final int COPY = 5; // copy reg1 to reg2
+	public static final int BRANCH = 6; // goto address in reg
+	public static final int BNE = 7; // branch if not equal
+	public static final int BLT = 8; // branch if less than
+	public static final int POP = 9; // load value from stack
+	public static final int PUSH = 10; // save value to stack
+	public static final int LOAD = 11; // load value from heap
+	public static final int SAVE = 12; // save value to heap
+	public static final int TRAP = 15; // system call
 
-    //======================================================================
-    //Member variables
-    //----------------------------------------------------------------------
-    /**
-     * specifies whether the CPU should output details of its work
-     **/
-    private boolean m_verbose = true;
+	// These constants define the indexes to each register
+	public static final int R0 = 0; // general purpose registers
+	public static final int R1 = 1;
+	public static final int R2 = 2;
+	public static final int R3 = 3;
+	public static final int R4 = 4;
+	public static final int PC = 5; // program counter
+	public static final int SP = 6; // stack pointer
+	public static final int BASE = 7; // bottom of currently accessible RAM
+	public static final int LIM = 8; // top of accessible RAM
+	public static final int NUMREG = 9; // number of registers
 
-    /**
-     * This array contains all the registers on the "chip".
-     **/
-    private int m_registers[];
+	// Misc constants
+	public static final int NUMGENREG = PC; // the number of general registers
+	public static final int INSTRSIZE = 4; // number of ints in a single instr +
+	                                       // args. (Set to a fixed value for
+										   // simplicity.)
 
-    /**
-     * A pointer to the RAM used by this CPU
-     *
-     * @see RAM
-     **/
-    private RAM m_RAM = null;
-    
-    /**
-     * The initial address of the stack
-     **/
-    private int m_stackAddress = 0;
+	// ======================================================================
+	// Member variables
+	// ----------------------------------------------------------------------
+	/**
+	 * specifies whether the CPU should output details of its work
+	 **/
+	private boolean m_verbose = true;
 
-    //======================================================================
-    //Methods
-    //----------------------------------------------------------------------
+	/**
+	 * This array contains all the registers on the "chip".
+	 **/
+	private int m_registers[];
 
-    /**
-     * CPU ctor
-     *
-     * Intializes all member variables.
-     */
-    public CPU(RAM ram)
-    {
-        m_registers = new int[NUMREG];
-        for(int i = 0; i < NUMREG; i++)
-        {
-            m_registers[i] = 0;
-        }
-        m_RAM = ram;
+	/**
+	 * A pointer to the RAM used by this CPU
+	 * 
+	 * @see RAM
+	 **/
+	private RAM m_RAM = null;
 
-    }//CPU ctor
+	/**
+	 * The initial address of the stack.
+	 **/
+	private int m_stackAddress = 0;
 
-    /**
-     * getPC
-     *
-     * @return the value of the program counter
-     */
-    public int getPC()
-    {
-        return m_registers[PC];
-    }
+	// ======================================================================
+	// Methods
+	// ----------------------------------------------------------------------
 
-    /**
-     * getSP
-     *
-     * @return the value of the stack pointer
-     */
-    public int getSP()
-    {
-        return m_registers[SP];
-    }
+	/**
+	 * CPU ctor
+	 * 
+	 * Intializes all member variables.
+	 */
+	public CPU(RAM ram) {
+		m_registers = new int[NUMREG];
+		for (int i = 0; i < NUMREG; i++) {
+			m_registers[i] = 0;
+		}
+		m_RAM = ram;
 
-    /**
-     * getBASE
-     *
-     * @return the value of the base register
-     */
-    public int getBASE()
-    {
-        return m_registers[BASE];
-    }
+	}// CPU ctor
 
-    /**
-     * getLIMIT
-     *
-     * @return the value of the limit register
-     */
-    public int getLIM()
-    {
-        return m_registers[LIM];
-    }
+	/**
+	 * getPC
+	 * 
+	 * @return the value of the program counter
+	 */
+	public int getPC() {
+		return m_registers[PC];
+	}
 
-    /**
-     * getRegisters
-     *
-     * @return the registers
-     */
-    public int[] getRegisters()
-    {
-        return m_registers;
-    }
+	/**
+	 * getSP
+	 * 
+	 * @return the value of the stack pointer
+	 */
+	public int getSP() {
+		return m_registers[SP];
+	}
 
-    /**
-     * setPC
-     *
-     * @param v the new value of the program counter
-     */
-    public void setPC(int v)
-    {
-        m_registers[PC] = v;
-    }
+	/**
+	 * getBASE
+	 * 
+	 * @return the value of the base register
+	 */
+	public int getBASE() {
+		return m_registers[BASE];
+	}
 
-    /**
-     * setSP
-     *
-     * @param v the new value of the stack pointer
-     */
-    public void setSP(int v)
-    {
-        m_registers[SP] = v;
-    }
+	/**
+	 * getLIMIT
+	 * 
+	 * @return the value of the limit register
+	 */
+	public int getLIM() {
+		return m_registers[LIM];
+	}
 
-    /**
-     * setBASE
-     *
-     * @param v the new value of the base register
-     */
-    public void setBASE(int v)
-    {
-        m_registers[BASE] = v;
-    }
+	/**
+	 * getRegisters
+	 * 
+	 * @return the registers
+	 */
+	public int[] getRegisters() {
+		return m_registers;
+	}
 
-    /**
-     * setLIM
-     *
-     * @param v the new value of the limit register
-     */
-    public void setLIM(int v)
-    {
-        m_registers[LIM] = v;
-    }
+	/**
+	 * setPC
+	 * 
+	 * @param v
+	 *            the new value of the program counter
+	 */
+	public void setPC(int v) {
+		m_registers[PC] = v;
+	}
 
-    /**
-     * regDump
-     *
-     * Prints the values of the registers.  Useful for debugging.
-     */
-    private void regDump()
-    {
-        for(int i = 0; i < NUMGENREG; i++)
-        {
-            System.out.print("r" + i + "=" + m_registers[i] + " ");
-        }//for
-        System.out.print("PC=" + m_registers[PC] + " ");
-        System.out.print("SP=" + m_registers[SP] + " ");
-        System.out.print("BASE=" + m_registers[BASE] + " ");
-        System.out.print("LIM=" + m_registers[LIM] + " ");
-        System.out.println("");
-    }//regDump
+	/**
+	 * setSP
+	 * 
+	 * @param v
+	 *            the new value of the stack pointer
+	 */
+	public void setSP(int v) {
+		m_registers[SP] = v;
+	}
 
-    /**
-     * printIntr
-     *
-     * Prints a given instruction in a user readable format.  Useful for
-     * debugging.
-     *
-     * @param instr the current instruction
-     */
-    public void printInstr(int[] instr)
-    {
-            switch(instr[0])
-            {
-                case SET:
-                    System.out.println("SET R" + instr[1] + " = " + instr[2]);
-                    break;
-                case ADD:
-                    System.out.println("ADD R" + instr[1] + " = R" + instr[2] + " + R" + instr[3]);
-                    break;
-                case SUB:
-                    System.out.println("SUB R" + instr[1] + " = R" + instr[2] + " - R" + instr[3]);
-                    break;
-                case MUL:
-                    System.out.println("MUL R" + instr[1] + " = R" + instr[2] + " * R" + instr[3]);
-                    break;
-                case DIV:
-                    System.out.println("DIV R" + instr[1] + " = R" + instr[2] + " / R" + instr[3]);
-                    break;
-                case COPY:
-                    System.out.println("COPY R" + instr[1] + " = R" + instr[2]);
-                    break;
-                case BRANCH:
-                    System.out.println("BRANCH @" + instr[1]);
-                    break;
-                case BNE:
-                    System.out.println("BNE (R" + instr[1] + " != R" + instr[2] + ") @" + instr[3]);
-                    break;
-                case BLT:
-                    System.out.println("BLT (R" + instr[1] + " < R" + instr[2] + ") @" + instr[3]);
-                    break;
-                case POP:
-                    System.out.println("POP R" + instr[1]);
-                    break;
-                case PUSH:
-                    System.out.println("PUSH R" + instr[1]);
-                    break;
-                case LOAD:
-                    System.out.println("LOAD R" + instr[1] + " <-- @R" + instr[2]);
-                    break;
-                case SAVE:
-                    System.out.println("SAVE R" + instr[1] + " --> @R" + instr[2]);
-                    break;
-                case TRAP:
-                    System.out.print("TRAP ");
-                    break;
-                default:        // should never be reached
-                    System.out.println("?? ");
-                    break;          
-            }//switch
+	/**
+	 * setBASE
+	 * 
+	 * @param v
+	 *            the new value of the base register
+	 */
+	public void setBASE(int v) {
+		m_registers[BASE] = v;
+	}
 
-    }//printInstr
+	/**
+	 * setLIM
+	 * 
+	 * @param v
+	 *            the new value of the limit register
+	 */
+	public void setLIM(int v) {
+		m_registers[LIM] = v;
+	}
 
+	/**
+	 * regDump
+	 * 
+	 * Prints the values of the registers. Useful for debugging.
+	 */
+	private void regDump() {
+		for (int i = 0; i < NUMGENREG; i++) {
+			System.out.print("r" + i + "=" + m_registers[i] + " ");
+		}// for
+		System.out.print("PC=" + m_registers[PC] + " ");
+		System.out.print("SP=" + m_registers[SP] + " ");
+		System.out.print("BASE=" + m_registers[BASE] + " ");
+		System.out.print("LIM=" + m_registers[LIM] + " ");
+		System.out.println("");
+	}// regDump
 
-    //<insert method header here>
-    public void run()
-    {
-    	m_stackAddress = getSP();
-    	while(m_registers[PC] < m_registers[LIM]) {
-    		int[] inst = m_RAM.fetch(getPC());
-    		
-    		if(m_verbose){
-    			regDump();
-    			printInstr(inst);
-    		}
-    		
-    		switch(inst[0]){
-    			case SET: setHelper(inst[1], inst[2]);
-    				break;
-    			case ADD: addHelper(inst[1], inst[2], inst[3]);
-    				break;
-    			case SUB: subHelper(inst[1], inst[2], inst[3]);
-    				break;
-    			case MUL: mulHelper(inst[1], inst[2], inst[3]);
-    				break;
-    			case DIV: divHelper(inst[1], inst[2], inst[3]);
-    				break;
-    			case COPY: copyHelper(inst[1], inst[2]);
-    				break;
-    			case BRANCH: branchHelper(inst[1]);
-    				break;
-    			case BNE: bneHelper(inst[1], inst[2], inst[3]);
-    				break;
-    			case BLT: bltHelper(inst[1], inst[2], inst[3]);
-    				break;
-    			case POP: popHelper(inst[1]);
-    				break;
-    			case PUSH: pushHelper(inst[1]);
-    				break;
-    			case LOAD: loadHelper(inst[1], inst[2]);
-    				break;
-    			case SAVE: saveHelper(inst[1], inst[2]);
-    				break;
-    			case TRAP: return;//trapHelper();
-    				//break;
-    			//default case?
-    			
-    		} //switch
-    		setPC(getPC()+INSTRSIZE);
-    	} //while
-    }//run
-    
-    private void setHelper(int arg1, int arg2) {
-    	m_registers[arg1] = arg2;
-    } //setHelper
-    
-    private void addHelper(int arg1, int arg2, int arg3) {
-    	m_registers[arg1] = m_registers[arg2] + m_registers[arg3];
-    } //addHelper
-    
-    private void subHelper(int arg1, int arg2, int arg3) {
-    	m_registers[arg1] = m_registers[arg2] - m_registers[arg3];
-    }//subHelper
-    
-    private void mulHelper(int arg1, int arg2, int arg3) {
-    	m_registers[arg1] = m_registers[arg2] * m_registers[arg3];
-    } //mulHelper
-    
-    private void divHelper(int arg1, int arg2, int arg3) {
-    	m_registers[arg1] = m_registers[arg2] / m_registers[arg3];
-    } //divHelper
-    
-    private void copyHelper(int arg1, int arg2) {
-    	m_registers[arg1] = m_registers[arg2];
-    }//copyHelper
-    
-    private void branchHelper(int arg1) {
-    	checkRAM(arg1);
-    	setPC(arg1-3);
-    }//branchHelper
-    
-    private void bneHelper(int arg1, int arg2, int arg3) {
-    	if (m_registers[arg1] != m_registers[arg2]) {
-    		checkRAM(arg3);
-    		// Our PC starts at 1, and we need to offset this command before
-    		// we increment the PC in the main switch statement
-    		setPC(arg3-3);
-    	}
-    }//bneHelper
-    
-    private void bltHelper(int arg1, int arg2, int arg3) {
-    	if (m_registers[arg1] < m_registers[arg2]){
-    		checkRAM(arg3);
-    		setPC(arg3-3);
-    	}
-    }//bltHelper
-    
+	/**
+	 * printIntr
+	 * 
+	 * Prints a given instruction in a user readable format. Useful for
+	 * debugging.
+	 * 
+	 * @param instr
+	 *            the current instruction
+	 */
+	public void printInstr(int[] instr) {
+		switch (instr[0]) {
+		case SET:
+			System.out.println("SET R" + instr[1] + " = " + instr[2]);
+			break;
+		case ADD:
+			System.out.println("ADD R" + instr[1] + " = R" + instr[2] + " + R"
+			        + instr[3]);
+			break;
+		case SUB:
+			System.out.println("SUB R" + instr[1] + " = R" + instr[2] + " - R"
+			        + instr[3]);
+			break;
+		case MUL:
+			System.out.println("MUL R" + instr[1] + " = R" + instr[2] + " * R"
+			        + instr[3]);
+			break;
+		case DIV:
+			System.out.println("DIV R" + instr[1] + " = R" + instr[2] + " / R"
+			        + instr[3]);
+			break;
+		case COPY:
+			System.out.println("COPY R" + instr[1] + " = R" + instr[2]);
+			break;
+		case BRANCH:
+			System.out.println("BRANCH @" + instr[1]);
+			break;
+		case BNE:
+			System.out.println("BNE (R" + instr[1] + " != R" + instr[2] + ") @"
+			        + instr[3]);
+			break;
+		case BLT:
+			System.out.println("BLT (R" + instr[1] + " < R" + instr[2] + ") @"
+			        + instr[3]);
+			break;
+		case POP:
+			System.out.println("POP R" + instr[1]);
+			break;
+		case PUSH:
+			System.out.println("PUSH R" + instr[1]);
+			break;
+		case LOAD:
+			System.out.println("LOAD R" + instr[1] + " <-- @R" + instr[2]);
+			break;
+		case SAVE:
+			System.out.println("SAVE R" + instr[1] + " --> @R" + instr[2]);
+			break;
+		case TRAP:
+			System.out.print("TRAP ");
+			break;
+		default: // should never be reached
+			System.out.println("?? ");
+			break;
+		}// switch
+
+	}// printInstr
+
+	/**
+	 * run() - the main method of the CPU class. This method is responsible for
+	 * running programs passed down from the operating system. It parses an
+	 * array of four integers at a time and runs them through a switch statement
+	 * to determine the course of action.
+	 */
+	public void run() {
+		int test = 1;
+		m_stackAddress = getSP();
+		while (m_registers[PC] < m_registers[LIM]) {
+			int[] inst = m_RAM.fetch(getPC());
+			
+			if (m_verbose) {
+				regDump();
+				printInstr(inst);
+			}
+
+			switch (inst[0]) {
+			case SET:
+				setHelper(inst[1], inst[2]);
+				break;
+			case ADD:
+				addHelper(inst[1], inst[2], inst[3]);
+				break;
+			case SUB:
+				subHelper(inst[1], inst[2], inst[3]);
+				break;
+			case MUL:
+				mulHelper(inst[1], inst[2], inst[3]);
+				break;
+			case DIV:
+				divHelper(inst[1], inst[2], inst[3]);
+				break;
+			case COPY:
+				copyHelper(inst[1], inst[2]);
+				break;
+			case BRANCH:
+				branchHelper(inst[1]);
+				break;
+			case BNE:
+				bneHelper(inst[1], inst[2], inst[3]);
+				break;
+			case BLT:
+				bltHelper(inst[1], inst[2], inst[3]);
+				break;
+			case POP:
+				popHelper(inst[1]);
+				break;
+			case PUSH:
+				pushHelper(inst[1]);
+				break;
+			case LOAD:
+				loadHelper(inst[1], inst[2]);
+				break;
+			case SAVE:
+				saveHelper(inst[1], inst[2]);
+				break;
+			case TRAP:
+				return;
+			} // switch
+			
+			setPC(getPC() + INSTRSIZE);
+			test++;
+			System.out.println("Our final count was " + test);
+		} // while
+	}// run
+
+	/**
+	 * Private helper function to implement the SET function in Pidgin.
+	 * 
+	 * @param arg1 The destination register.
+	 * @param arg2 The immediate value to be set.
+	 */
+	private void setHelper(int arg1, int arg2) {
+		m_registers[arg1] = arg2;
+	} // setHelper
+
+	/**
+	 * Private helper function to implement the ADD function in Pidgin.
+	 * 
+	 * @param arg1 The destination register.
+	 * @param arg2 The first register to be summed.
+	 * @param arg3 The second register to be summed.
+	 */
+	private void addHelper(int arg1, int arg2, int arg3) {
+		m_registers[arg1] = m_registers[arg2] + m_registers[arg3];
+	} // addHelper
+
+	/**
+	 * Private helper function to implement the SUB function in Pidgin.
+	 * 
+	 * @param arg1 The destination register.
+	 * @param arg2 The first register to be subtracted.
+	 * @param arg3 The second register to be subtracted.
+	 */
+	private void subHelper(int arg1, int arg2, int arg3) {
+		m_registers[arg1] = m_registers[arg2] - m_registers[arg3];
+	}// subHelper
+
+	/**
+	 * Private helper function to implement the MUL function in Pidgin.
+	 * 
+	 * @param arg1 The destination register.
+	 * @param arg2 The first register to be multiplied.
+	 * @param arg3 The second register to be multiplied.
+	 */
+	private void mulHelper(int arg1, int arg2, int arg3) {
+		m_registers[arg1] = m_registers[arg2] * m_registers[arg3];
+	} // mulHelper
+
+	/**
+	 * Private helper function to implement the DIV function in Pidgin.
+	 * 
+	 * @param arg1 The destination register.
+	 * @param arg2 The numerator.
+	 * @param arg3 The denominator.
+	 */
+	private void divHelper(int arg1, int arg2, int arg3) {
+		m_registers[arg1] = m_registers[arg2] / m_registers[arg3];
+	} // divHelper
+
+	/**
+	 * Private helper function to implement the COPY function in Pidgin.
+	 * 
+	 * @param arg1 The destination register
+	 * @param arg2 The origin register.
+	 */
+	private void copyHelper(int arg1, int arg2) {
+		m_registers[arg1] = m_registers[arg2];
+	}// copyHelper
+
+	/**
+	 * Private helper function to implement the BRANCH function in Pidgin.
+	 * 
+	 * @param arg1 The address in RAM to branch to
+	 */
+	private void branchHelper(int arg1) {
+		checkRAM(arg1);
+		setPC(arg1 - 3);
+	}// branchHelper
+
+	/**
+	 * Private helper function to implement the BNE function in Pidgin.
+	 * 
+	 * @param arg1 The first register to compare.
+	 * @param arg2 The second register to compare.
+	 * @param arg3 The destination address in memory.
+	 */
+	private void bneHelper(int arg1, int arg2, int arg3) {
+		if (m_registers[arg1] != m_registers[arg2]) {
+			checkRAM(arg3);
+			// Our PC starts at 1, and we need to offset this command before
+			// we increment the PC in the main switch statement
+			setPC(arg3 - 3);
+		}
+	}// bneHelper
+
+	/**
+	 * 
+	 * @param arg1
+	 * @param arg2
+	 * @param arg3
+	 */
+	private void bltHelper(int arg1, int arg2, int arg3) {
+		if (m_registers[arg1] < m_registers[arg2]) {
+			checkRAM(arg3);
+			setPC(arg3 - 3);
+		}
+	}// bltHelper
+
 	private void popHelper(int arg1) {
 		if (getSP() < m_stackAddress) {
-			System.out.println("Accessing stack at invalid memory address " + getSP());
+			System.out.println("Accessing stack at invalid memory address "
+			        + getSP());
 			System.exit(-1);
 		}
 		// Do we need to check stacksize anywhere else?
 		m_registers[arg1] = m_RAM.read(getSP());
 		setSP(getSP() - 1);
-	}//popHelper
-	
+	}// popHelper
+
 	private void pushHelper(int arg1) {
-		setSP(getSP()+1);
+		setSP(getSP() + 1);
 		checkRAM(getSP());
 		m_RAM.write(getSP(), m_registers[arg1]);
-	}//pushHelper
-	
+	}// pushHelper
+
 	private void loadHelper(int arg1, int arg2) {
 		checkRAM(m_registers[arg2]);
 		m_registers[arg1] = m_RAM.read(m_registers[arg2]);
-	}//loadHelper
-	
+	}// loadHelper
+
 	private void saveHelper(int arg1, int arg2) {
 		checkRAM(m_registers[arg1]);
-		System.out.println("We're about to save something at address " + m_registers[arg2]);
 		m_RAM.write(m_registers[arg2], m_registers[arg1]);
-	} //saveHelper  
+	} // saveHelper
 
-	private void checkRAM (int addr){
+	private void checkRAM(int addr) {
 		if ((addr > m_registers[LIM]) || (addr < m_registers[BASE])) {
-			System.out.println("Error: Invalid memory accessed at " + addr + ", the PC was " + PC + ".");
+			System.out.println("Error: Invalid memory accessed at " + addr
+			        + ", the PC was " + PC + ".");
 			System.exit(-1);
 		}
-	}//checkRAM
-};//class CPU
+	}// checkRAM
+};// class CPU
