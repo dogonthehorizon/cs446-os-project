@@ -55,7 +55,7 @@ public class CPU {
 	public static final int NUMGENREG = PC; // the number of general registers
 	public static final int INSTRSIZE = 4; // number of ints in a single instr +
 	                                       // args. (Set to a fixed value for
-										   // simplicity.)
+	                                       // simplicity.)
 
 	// ======================================================================
 	// Member variables
@@ -76,11 +76,6 @@ public class CPU {
 	 * @see RAM
 	 **/
 	private RAM m_RAM = null;
-
-	/**
-	 * The initial address of the stack.
-	 **/
-	private int m_stackAddress = 0;
 
 	// ======================================================================
 	// Methods
@@ -274,11 +269,9 @@ public class CPU {
 	 * to determine the course of action.
 	 */
 	public void run() {
-		int test = 1;
-		m_stackAddress = getSP();
-		while (m_registers[PC] < m_registers[LIM]) {
+		for (int i = getBASE(); i < getLIM(); i++) {
 			int[] inst = m_RAM.fetch(getPC());
-			
+
 			if (m_verbose) {
 				regDump();
 				printInstr(inst);
@@ -322,23 +315,27 @@ public class CPU {
 				loadHelper(inst[1], inst[2]);
 				break;
 			case SAVE:
-				saveHelper(inst[1], inst[2]);
+				if (checkRAM(m_registers[inst[1]])) {
+					saveHelper(inst[1], inst[2]);
+				} else {
+					return;
+				}
 				break;
 			case TRAP:
 				return;
 			} // switch
-			
+
 			setPC(getPC() + INSTRSIZE);
-			test++;
-			System.out.println("Our final count was " + test);
 		} // while
 	}// run
 
 	/**
 	 * Private helper function to implement the SET function in Pidgin.
 	 * 
-	 * @param arg1 The destination register.
-	 * @param arg2 The immediate value to be set.
+	 * @param arg1
+	 *            The destination register.
+	 * @param arg2
+	 *            The immediate value to be set.
 	 */
 	private void setHelper(int arg1, int arg2) {
 		m_registers[arg1] = arg2;
@@ -347,9 +344,12 @@ public class CPU {
 	/**
 	 * Private helper function to implement the ADD function in Pidgin.
 	 * 
-	 * @param arg1 The destination register.
-	 * @param arg2 The first register to be summed.
-	 * @param arg3 The second register to be summed.
+	 * @param arg1
+	 *            The destination register.
+	 * @param arg2
+	 *            The first register to be summed.
+	 * @param arg3
+	 *            The second register to be summed.
 	 */
 	private void addHelper(int arg1, int arg2, int arg3) {
 		m_registers[arg1] = m_registers[arg2] + m_registers[arg3];
@@ -358,9 +358,12 @@ public class CPU {
 	/**
 	 * Private helper function to implement the SUB function in Pidgin.
 	 * 
-	 * @param arg1 The destination register.
-	 * @param arg2 The first register to be subtracted.
-	 * @param arg3 The second register to be subtracted.
+	 * @param arg1
+	 *            The destination register.
+	 * @param arg2
+	 *            The first register to be subtracted.
+	 * @param arg3
+	 *            The second register to be subtracted.
 	 */
 	private void subHelper(int arg1, int arg2, int arg3) {
 		m_registers[arg1] = m_registers[arg2] - m_registers[arg3];
@@ -369,9 +372,12 @@ public class CPU {
 	/**
 	 * Private helper function to implement the MUL function in Pidgin.
 	 * 
-	 * @param arg1 The destination register.
-	 * @param arg2 The first register to be multiplied.
-	 * @param arg3 The second register to be multiplied.
+	 * @param arg1
+	 *            The destination register.
+	 * @param arg2
+	 *            The first register to be multiplied.
+	 * @param arg3
+	 *            The second register to be multiplied.
 	 */
 	private void mulHelper(int arg1, int arg2, int arg3) {
 		m_registers[arg1] = m_registers[arg2] * m_registers[arg3];
@@ -380,9 +386,12 @@ public class CPU {
 	/**
 	 * Private helper function to implement the DIV function in Pidgin.
 	 * 
-	 * @param arg1 The destination register.
-	 * @param arg2 The numerator.
-	 * @param arg3 The denominator.
+	 * @param arg1
+	 *            The destination register.
+	 * @param arg2
+	 *            The numerator.
+	 * @param arg3
+	 *            The denominator.
 	 */
 	private void divHelper(int arg1, int arg2, int arg3) {
 		m_registers[arg1] = m_registers[arg2] / m_registers[arg3];
@@ -391,8 +400,10 @@ public class CPU {
 	/**
 	 * Private helper function to implement the COPY function in Pidgin.
 	 * 
-	 * @param arg1 The destination register
-	 * @param arg2 The origin register.
+	 * @param arg1
+	 *            The destination register
+	 * @param arg2
+	 *            The origin register.
 	 */
 	private void copyHelper(int arg1, int arg2) {
 		m_registers[arg1] = m_registers[arg2];
@@ -401,74 +412,105 @@ public class CPU {
 	/**
 	 * Private helper function to implement the BRANCH function in Pidgin.
 	 * 
-	 * @param arg1 The address in RAM to branch to
+	 * @param arg1
+	 *            The address in RAM to branch to
 	 */
 	private void branchHelper(int arg1) {
-		checkRAM(arg1);
-		setPC(arg1 - 3);
+		setPC(getBASE() + arg1 - INSTRSIZE);
 	}// branchHelper
 
 	/**
 	 * Private helper function to implement the BNE function in Pidgin.
 	 * 
-	 * @param arg1 The first register to compare.
-	 * @param arg2 The second register to compare.
-	 * @param arg3 The destination address in memory.
+	 * @param arg1
+	 *            The first register to compare.
+	 * @param arg2
+	 *            The second register to compare.
+	 * @param arg3
+	 *            The destination address in memory.
 	 */
 	private void bneHelper(int arg1, int arg2, int arg3) {
 		if (m_registers[arg1] != m_registers[arg2]) {
-			checkRAM(arg3);
-			// Our PC starts at 1, and we need to offset this command before
-			// we increment the PC in the main switch statement
-			setPC(arg3 - 3);
+			setPC(getBASE() + arg3 - INSTRSIZE);
 		}
 	}// bneHelper
 
 	/**
+	 * Private helper function to implement the BLT function in Pidgin.
 	 * 
 	 * @param arg1
+	 *            The first register to compare.
 	 * @param arg2
+	 *            The second register to compare.
 	 * @param arg3
+	 *            The destination address in memory.
 	 */
 	private void bltHelper(int arg1, int arg2, int arg3) {
 		if (m_registers[arg1] < m_registers[arg2]) {
-			checkRAM(arg3);
-			setPC(arg3 - 3);
+			setPC(getBASE() + arg3 - INSTRSIZE);
 		}
 	}// bltHelper
 
+	/**
+	 * Private helper function to implement the POP function in Pidgin.
+	 * 
+	 * @param arg1
+	 *            The source register to store on the stack.
+	 */
 	private void popHelper(int arg1) {
-		if (getSP() < m_stackAddress) {
-			System.out.println("Accessing stack at invalid memory address "
-			        + getSP());
-			System.exit(-1);
-		}
-		// Do we need to check stacksize anywhere else?
 		m_registers[arg1] = m_RAM.read(getSP());
-		setSP(getSP() - 1);
+		setSP(getSP() + 1);
 	}// popHelper
 
+	/**
+	 * Private helper function to implement the PUSH function in Pidgin.
+	 * 
+	 * @param arg1
+	 *            The target register to store the stack's current value.
+	 */
 	private void pushHelper(int arg1) {
-		setSP(getSP() + 1);
-		checkRAM(getSP());
+		setSP(getSP() - 1);
 		m_RAM.write(getSP(), m_registers[arg1]);
 	}// pushHelper
 
+	/**
+	 * Private helper function to implement the LOAD function in Pidgin.
+	 * 
+	 * @param arg1
+	 *            The target register to store the contents of RAM.
+	 * @param arg2
+	 *            The register containing the address in memory to store.
+	 */
 	private void loadHelper(int arg1, int arg2) {
-		checkRAM(m_registers[arg2]);
-		m_registers[arg1] = m_RAM.read(m_registers[arg2]);
+		m_registers[arg1] = m_RAM.read(m_registers[arg2] + getBASE());
 	}// loadHelper
 
+	/**
+	 * Private helper function to implement the SAVE function in Pidgin.
+	 * 
+	 * @param arg1
+	 *            The target register to store the contents of RAM.
+	 * @param arg2
+	 *            The register containing the address in memory to read.
+	 */
 	private void saveHelper(int arg1, int arg2) {
-		checkRAM(m_registers[arg1]);
-		m_RAM.write(m_registers[arg2], m_registers[arg1]);
+
+		m_RAM.write(m_registers[arg2] + getBASE(), m_registers[arg1]);
 	} // saveHelper
 
-	private void checkRAM(int addr) {
-		if ((addr > m_registers[LIM]) || (addr < m_registers[BASE])) {
-			System.out.println("Error: Invalid memory accessed at " + addr
+	/**
+	 * Private helper function to check the current program's memory boundaries.
+	 * 
+	 * @param addr The address to check
+	 * @return true if the address is within the program's memory
+	 * @return false if the address is outside of the program's memory
+	 */
+	private boolean checkRAM(int addr) {
+		if ((addr + getBASE() > getLIM()) || (addr + getBASE() < getBASE())) {
+			System.err.println("Error: Invalid memory accessed at " + addr
 			        + ", the PC was " + PC + ".");
-			System.exit(-1);
+			return false;
 		}
+		return true;
 	}// checkRAM
 };// class CPU

@@ -97,21 +97,32 @@ public class SOS {
 	 * ----------------------------------------------------------------------
 	 */
 
-	// insert method header here
+	/**
+	 * createProcess() - this function reads in a compiled program and writes
+	 * the program to RAM. This function also initializes the BASE and LIMIT
+	 * registers and sets the PC And SP registers accordingly.
+	 * 
+	 * @param prog
+	 *            The compiled program to run.
+	 * @param allocSize
+	 *            The allocated memory size for given program.
+	 */
 	public void createProcess(Program prog, int allocSize) {
 		int[] inst = prog.export();
 
-		m_CPU.setBASE(0);
+		m_CPU.setBASE(5);
 		m_CPU.setLIM(m_CPU.getBASE() + allocSize);
+		m_CPU.setSP(m_CPU.getLIM() - 1);
 
-		int addr = m_CPU.getBASE();
-		for (int i : inst) {
-			addr++;
-			m_RAM.write(addr, i);
+		int instructionCount = 0;
+		for (int virtualAddress = m_CPU.getBASE(); virtualAddress < 
+				m_CPU.getBASE() + inst.length - 1; virtualAddress++) {
+			
+			m_RAM.write(virtualAddress, inst[instructionCount]);
+			instructionCount++;
 		}
 
-		m_CPU.setPC(m_CPU.getBASE() + 1);
-		m_CPU.setSP(allocSize - (allocSize / 3));
+		m_CPU.setPC(m_CPU.getBASE());
 	}// createProcess
 
 	/*
