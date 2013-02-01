@@ -7,14 +7,12 @@ import java.util.*;
  * microcomputer. This includes a processor chip, RAM and I/O devices. It is
  * designed to demonstrate a simulated operating system (SOS).
  * 
- * @author Fernando Freire
- * @author Carl Lulay
- * 
  * @see RAM
  * @see SOS
  * @see Program
  * @see Sim
  * 
+ * @author Vincent Clasgens, Aaron Dobbe
  */
 
 public class CPU {
@@ -54,8 +52,8 @@ public class CPU {
 	// Misc constants
 	public static final int NUMGENREG = PC; // the number of general registers
 	public static final int INSTRSIZE = 4; // number of ints in a single instr +
-	                                       // args. (Set to a fixed value for
-	                                       // simplicity.)
+											// args. (Set to a fixed value for
+											// simplicity.)
 
 	// ======================================================================
 	// Member variables
@@ -197,7 +195,7 @@ public class CPU {
 	}// regDump
 
 	/**
-	 * printIntr
+	 * printInstr
 	 * 
 	 * Prints a given instruction in a user readable format. Useful for
 	 * debugging.
@@ -212,19 +210,19 @@ public class CPU {
 			break;
 		case ADD:
 			System.out.println("ADD R" + instr[1] + " = R" + instr[2] + " + R"
-			        + instr[3]);
+					+ instr[3]);
 			break;
 		case SUB:
 			System.out.println("SUB R" + instr[1] + " = R" + instr[2] + " - R"
-			        + instr[3]);
+					+ instr[3]);
 			break;
 		case MUL:
 			System.out.println("MUL R" + instr[1] + " = R" + instr[2] + " * R"
-			        + instr[3]);
+					+ instr[3]);
 			break;
 		case DIV:
 			System.out.println("DIV R" + instr[1] + " = R" + instr[2] + " / R"
-			        + instr[3]);
+					+ instr[3]);
 			break;
 		case COPY:
 			System.out.println("COPY R" + instr[1] + " = R" + instr[2]);
@@ -234,11 +232,11 @@ public class CPU {
 			break;
 		case BNE:
 			System.out.println("BNE (R" + instr[1] + " != R" + instr[2] + ") @"
-			        + instr[3]);
+					+ instr[3]);
 			break;
 		case BLT:
 			System.out.println("BLT (R" + instr[1] + " < R" + instr[2] + ") @"
-			        + instr[3]);
+					+ instr[3]);
 			break;
 		case POP:
 			System.out.println("POP R" + instr[1]);
@@ -263,254 +261,152 @@ public class CPU {
 	}// printInstr
 
 	/**
-	 * run() - the main method of the CPU class. This method is responsible for
-	 * running programs passed down from the operating system. It parses an
-	 * array of four integers at a time and runs them through a switch statement
-	 * to determine the course of action.
+	 * pop
+	 * 
+	 * Pops the top register off the stack and returns it
+	 * 
+	 * @returns The value that was on the top of the stack
 	 */
-	public void run() {
-		for (int i = getBASE(); i < getLIM(); i++) {
-			int[] inst = m_RAM.fetch(getPC());
+	private int pop() {
+		if (!checkLimit(getBASE() + getSP() + 1)) {
+			System.err.println("RAM access out of bounds for pop instruction");
+			return -1;
+		}
+		int stackTop = m_RAM.read(getBASE()+getSP());
 
-			if (m_verbose) {
+		// decrement the stack pointer
+		setSP(getSP() + 1);
+
+		return stackTop;
+	}
+
+	/**
+	 * push
+	 * 
+	 * Increments the stack and pushes a value to it
+	 * 
+	 * @param the
+	 *            value to be pushed to RAM
+	 */
+	private void push(int toPush) {
+		if (!checkLimit(getBASE() + getSP() - 1)) {
+			System.err.println("RAM access out of bounds for push instruction");
+			return;
+		}
+
+		// increment the stack pointer
+		setSP(getSP() - 1);
+
+		m_RAM.write(getBASE() + getSP(), toPush);
+	}
+
+	/**
+	 * checkLimit
+	 * 
+	 * Increments the stack and pushes a value to it
+	 * 
+	 * @param the
+	 *            value to be pushed to RAM
+	 */
+	private boolean checkLimit(int addr) {
+
+		if (addr < getBASE()) {
+			return false;
+		} else if (getBASE() + getLIM() < addr) {
+			return false;
+		} else {
+			return true;
+		}
+	}
+
+	// <insert method header here>
+	public void run() {
+		while (true) {
+			// ensure PC is in bounds
+			checkLimit(getPC());
+			
+			// Fetch the next instruction and increment the PC
+			int[] instr = m_RAM.fetch(getBASE() + getPC());
+			setPC(getPC() + INSTRSIZE);
+
+			// print debugging info if we are in verbose mode
+			if (m_verbose == true) {
 				regDump();
-				printInstr(inst);
+				printInstr(instr);
 			}
 
-			switch (inst[0]) {
+			// execute the instruction
+			switch (instr[0]) {
 			case SET:
-				setHelper(inst[1], inst[2]);
+				m_registers[instr[1]] = instr[2];
 				break;
 			case ADD:
-				addHelper(inst[1], inst[2], inst[3]);
+				m_registers[instr[1]] = m_registers[instr[2]]
+						+ m_registers[instr[3]];
 				break;
 			case SUB:
-				subHelper(inst[1], inst[2], inst[3]);
+				m_registers[instr[1]] = m_registers[instr[2]]
+						- m_registers[instr[3]];
 				break;
 			case MUL:
-				mulHelper(inst[1], inst[2], inst[3]);
+				m_registers[instr[1]] = m_registers[instr[2]]
+						* m_registers[instr[3]];
 				break;
 			case DIV:
-				divHelper(inst[1], inst[2], inst[3]);
+				m_registers[instr[1]] = m_registers[instr[2]]
+						/ m_registers[instr[3]];
 				break;
 			case COPY:
-				copyHelper(inst[1], inst[2]);
+				m_registers[instr[1]] = m_registers[instr[2]];
 				break;
 			case BRANCH:
-				branchHelper(inst[1]);
+				setPC(instr[1]);
 				break;
 			case BNE:
-				bneHelper(inst[1], inst[2], inst[3]);
-				break;
-			case BLT:
-				bltHelper(inst[1], inst[2], inst[3]);
-				break;
-			case POP:
-				popHelper(inst[1]);
-				break;
-			case PUSH:
-				pushHelper(inst[1]);
-				break;
-			case LOAD:
-				loadHelper(inst[1], inst[2]);
-				break;
-			case SAVE:
-				if (checkRAM(m_registers[inst[1]])) {
-					saveHelper(inst[1], inst[2]);
-				} else {
-					return;
+				if (m_registers[instr[1]] != m_registers[instr[2]]) {
+					setPC(instr[3]);
 				}
 				break;
+			case BLT:
+				if (m_registers[instr[1]] < m_registers[instr[2]]) {
+					setPC(instr[3]);
+				}
+				break;
+			case POP:
+				m_registers[instr[1]] = pop();
+				break;
+			case PUSH:
+				push(m_registers[instr[1]]);
+				break;
+			case LOAD:
+				// make sure the register to load is in bounds
+				if (!checkLimit(m_registers[instr[2]] + getBASE())) {
+					System.err
+							.println("Out of bounds memory access for LOAD instruction");
+					return;
+				}
+				m_registers[instr[1]] = m_RAM.read(m_registers[instr[2]]
+						+ getBASE());
+				break;
+			case SAVE:
+				// make sure the register to save is in bounds
+				if (!checkLimit(m_registers[instr[2]] + getBASE())) {
+					System.err
+							.println("Out of bounds memory access for SAVE instruction");
+					return;
+				}
+				m_RAM.write(m_registers[instr[2]] + getBASE(),
+						m_registers[instr[1]]);
+				break;
 			case TRAP:
+				// do nothing for assignment 1
 				return;
-			} // switch
+			default: // should never be reached
+				System.out.println("?? ");
+				break;
+			}// switch
 
-			setPC(getPC() + INSTRSIZE);
-		} // while
+		}// while
 	}// run
 
-	/**
-	 * Private helper function to implement the SET function in Pidgin.
-	 * 
-	 * @param arg1
-	 *            The destination register.
-	 * @param arg2
-	 *            The immediate value to be set.
-	 */
-	private void setHelper(int arg1, int arg2) {
-		m_registers[arg1] = arg2;
-	} // setHelper
-
-	/**
-	 * Private helper function to implement the ADD function in Pidgin.
-	 * 
-	 * @param arg1
-	 *            The destination register.
-	 * @param arg2
-	 *            The first register to be summed.
-	 * @param arg3
-	 *            The second register to be summed.
-	 */
-	private void addHelper(int arg1, int arg2, int arg3) {
-		m_registers[arg1] = m_registers[arg2] + m_registers[arg3];
-	} // addHelper
-
-	/**
-	 * Private helper function to implement the SUB function in Pidgin.
-	 * 
-	 * @param arg1
-	 *            The destination register.
-	 * @param arg2
-	 *            The first register to be subtracted.
-	 * @param arg3
-	 *            The second register to be subtracted.
-	 */
-	private void subHelper(int arg1, int arg2, int arg3) {
-		m_registers[arg1] = m_registers[arg2] - m_registers[arg3];
-	}// subHelper
-
-	/**
-	 * Private helper function to implement the MUL function in Pidgin.
-	 * 
-	 * @param arg1
-	 *            The destination register.
-	 * @param arg2
-	 *            The first register to be multiplied.
-	 * @param arg3
-	 *            The second register to be multiplied.
-	 */
-	private void mulHelper(int arg1, int arg2, int arg3) {
-		m_registers[arg1] = m_registers[arg2] * m_registers[arg3];
-	} // mulHelper
-
-	/**
-	 * Private helper function to implement the DIV function in Pidgin.
-	 * 
-	 * @param arg1
-	 *            The destination register.
-	 * @param arg2
-	 *            The numerator.
-	 * @param arg3
-	 *            The denominator.
-	 */
-	private void divHelper(int arg1, int arg2, int arg3) {
-		m_registers[arg1] = m_registers[arg2] / m_registers[arg3];
-	} // divHelper
-
-	/**
-	 * Private helper function to implement the COPY function in Pidgin.
-	 * 
-	 * @param arg1
-	 *            The destination register
-	 * @param arg2
-	 *            The origin register.
-	 */
-	private void copyHelper(int arg1, int arg2) {
-		m_registers[arg1] = m_registers[arg2];
-	}// copyHelper
-
-	/**
-	 * Private helper function to implement the BRANCH function in Pidgin.
-	 * 
-	 * @param arg1
-	 *            The address in RAM to branch to
-	 */
-	private void branchHelper(int arg1) {
-		setPC(getBASE() + arg1 - INSTRSIZE);
-	}// branchHelper
-
-	/**
-	 * Private helper function to implement the BNE function in Pidgin.
-	 * 
-	 * @param arg1
-	 *            The first register to compare.
-	 * @param arg2
-	 *            The second register to compare.
-	 * @param arg3
-	 *            The destination address in memory.
-	 */
-	private void bneHelper(int arg1, int arg2, int arg3) {
-		if (m_registers[arg1] != m_registers[arg2]) {
-			setPC(getBASE() + arg3 - INSTRSIZE);
-		}
-	}// bneHelper
-
-	/**
-	 * Private helper function to implement the BLT function in Pidgin.
-	 * 
-	 * @param arg1
-	 *            The first register to compare.
-	 * @param arg2
-	 *            The second register to compare.
-	 * @param arg3
-	 *            The destination address in memory.
-	 */
-	private void bltHelper(int arg1, int arg2, int arg3) {
-		if (m_registers[arg1] < m_registers[arg2]) {
-			setPC(getBASE() + arg3 - INSTRSIZE);
-		}
-	}// bltHelper
-
-	/**
-	 * Private helper function to implement the POP function in Pidgin.
-	 * 
-	 * @param arg1
-	 *            The source register to store on the stack.
-	 */
-	private void popHelper(int arg1) {
-		m_registers[arg1] = m_RAM.read(getSP());
-		setSP(getSP() + 1);
-	}// popHelper
-
-	/**
-	 * Private helper function to implement the PUSH function in Pidgin.
-	 * 
-	 * @param arg1
-	 *            The target register to store the stack's current value.
-	 */
-	private void pushHelper(int arg1) {
-		setSP(getSP() - 1);
-		m_RAM.write(getSP(), m_registers[arg1]);
-	}// pushHelper
-
-	/**
-	 * Private helper function to implement the LOAD function in Pidgin.
-	 * 
-	 * @param arg1
-	 *            The target register to store the contents of RAM.
-	 * @param arg2
-	 *            The register containing the address in memory to store.
-	 */
-	private void loadHelper(int arg1, int arg2) {
-		m_registers[arg1] = m_RAM.read(m_registers[arg2] + getBASE());
-	}// loadHelper
-
-	/**
-	 * Private helper function to implement the SAVE function in Pidgin.
-	 * 
-	 * @param arg1
-	 *            The target register to store the contents of RAM.
-	 * @param arg2
-	 *            The register containing the address in memory to read.
-	 */
-	private void saveHelper(int arg1, int arg2) {
-
-		m_RAM.write(m_registers[arg2] + getBASE(), m_registers[arg1]);
-	} // saveHelper
-
-	/**
-	 * Private helper function to check the current program's memory boundaries.
-	 * 
-	 * @param addr The address to check
-	 * @return true if the address is within the program's memory
-	 * @return false if the address is outside of the program's memory
-	 */
-	private boolean checkRAM(int addr) {
-		if ((addr + getBASE() > getLIM()) || (addr + getBASE() < getBASE())) {
-			System.err.println("Error: Invalid memory accessed at " + addr
-			        + ", the PC was " + PC + ".");
-			return false;
-		}
-		return true;
-	}// checkRAM
 };// class CPU
