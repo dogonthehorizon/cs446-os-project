@@ -11,8 +11,19 @@ import java.util.*;
  * @author Vincent Clasgens, Aaron Dobbe
  */
    
-public class SOS
+public class SOS implements CPU.TrapHandler 
 {
+	
+    //======================================================================
+    //Constants
+    //----------------------------------------------------------------------
+
+    //These constants define the system calls this OS can currently handle
+    public static final int SYSCALL_EXIT     = 0;    /* exit the current program */
+    public static final int SYSCALL_OUTPUT   = 1;    /* outputs a number */
+    public static final int SYSCALL_GETPID   = 2;    /* get current process id */
+    public static final int SYSCALL_COREDUMP = 9;    /* print process state and exit */
+    
     //======================================================================
     //Member variables
     //----------------------------------------------------------------------
@@ -46,6 +57,7 @@ public class SOS
         //Init member list
         m_CPU = c;
         m_RAM = r;
+        m_CPU.registerTrapHandler(this);
     }//SOS ctor
     
     /**
@@ -122,13 +134,72 @@ public class SOS
      *----------------------------------------------------------------------
      */
 
-    //None yet!
+    public void interruptIllegalMemoryAccess(int addr) {
+    	System.err.print("Illegal memory access attempted on PC " + m_CPU.getPC() + " at memory address " + addr);
+    	System.exit(0);
+    }
+    
+    public void interruptDivideByZero() {
+    	System.err.print("Divide by zero error at PC " + m_CPU.getPC());
+    	System.exit(0);
+    }
+    
+    public void interruptIllegalInstruction(int[] instr) {
+    	System.err.print("Illegal instruction attempted at PC " + m_CPU.getPC());
+    	System.exit(0);
+    }
     
     /*======================================================================
      * System Calls
      *----------------------------------------------------------------------
      */
     
-    //None yet!
+    //<insert header comment here>
+    public void systemCall()
+    {
+    	int syscall = popHelper();
+        switch(syscall){
+        	case SYSCALL_EXIT: syscall_exit();
+        		break;
+        	case SYSCALL_OUTPUT: syscall_output();
+        		break;
+        	case SYSCALL_GETPID: syscall_getpid();
+        		break;
+        	case SYSCALL_COREDUMP: syscall_coredump();
+        		break;
+        	default:
+        		break;
+        }
+    }
+    
+    private void syscall_exit () {
+    	System.exit(0);
+    }
+    
+    private void syscall_output () {
+    	int val = popHelper();
+    	System.out.println("OUTPUT: " + val);
+    }
+    
+    private void syscall_getpid () {
+    	pushHelper(42);
+    }
+    
+    private void syscall_coredump () {
+    	m_CPU.regDump();
+    	System.out.println("Top three items on the process stack (descending order): " + popHelper() + " " + popHelper() + " " + popHelper());
+    	syscall_exit();
+    }
+    
+    private void pushHelper (int val) {
+    	m_CPU.setSP(m_CPU.getSP()-1);
+    	m_RAM.write(m_CPU.getBASE() + m_CPU.getSP(), val);
+    }
+    
+    private int popHelper () {
+    	int syscallOption = m_RAM.read(m_CPU.getBASE()+m_CPU.getSP());
+    	m_CPU.setSP(m_CPU.getSP()+1);
+    	return syscallOption;
+    }
     
 };//class SOS

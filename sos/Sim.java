@@ -35,7 +35,7 @@ public class Sim
         SOS os = new SOS(cpu, ram);
 
         Program prog = new Program();
-        if (prog.load("break.asm", false) != 0)
+        if (prog.load("clasgens13_freire14_hw2.asm", false) != 0)
         {
             //Error loading program so exit
             return;

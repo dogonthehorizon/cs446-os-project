@@ -12,7 +12,7 @@ import java.util.*;
  * @see Program
  * @see Sim
  * 
- * @author Vincent Clasgens, Aaron Dobbe
+ * @author Vincent Clasgens, Aaron Dobbe, Fernando Freire
  */
 
 public class CPU {
@@ -54,6 +54,12 @@ public class CPU {
 	public static final int INSTRSIZE = 4; // number of ints in a single instr +
 											// args. (Set to a fixed value for
 											// simplicity.)
+	
+    //These constants define the system calls this OS can currently handle
+    public static final int SYSCALL_EXIT     = 0;    /* exit the current program */
+    public static final int SYSCALL_OUTPUT   = 1;    /* outputs a number */
+    public static final int SYSCALL_GETPID   = 2;    /* get current process id */
+    public static final int SYSCALL_COREDUMP = 9;    /* print process state and exit */
 
 	// ======================================================================
 	// Member variables
@@ -61,7 +67,7 @@ public class CPU {
 	/**
 	 * specifies whether the CPU should output details of its work
 	 **/
-	private boolean m_verbose = true;
+	private boolean m_verbose = false;
 
 	/**
 	 * This array contains all the registers on the "chip".
@@ -93,6 +99,41 @@ public class CPU {
 
 	}// CPU ctor
 
+    //======================================================================
+    //Callback Interface
+    //----------------------------------------------------------------------
+    /**
+     * TrapHandler
+     *
+     * This interface should be implemented by the operating system to allow the
+     * simulated CPU to generate hardware interrupts and system calls.
+     */
+    public interface TrapHandler
+    {
+        void interruptIllegalMemoryAccess(int addr);
+        void interruptDivideByZero();
+        void interruptIllegalInstruction(int[] instr);
+        void systemCall();
+    };//interface TrapHandler
+
+
+    
+    /**
+     * a reference to the trap handler for this CPU.  On a real CPU this would
+     * simply be an address that the PC register is set to.
+     */
+    private TrapHandler m_TH = null;
+    
+    /**
+     * registerTrapHandler
+     *
+     * allows SOS to register itself as the trap handler 
+     */
+    public void registerTrapHandler(TrapHandler th)
+    {
+        m_TH = th;
+    }
+	
 	/**
 	 * getPC
 	 * 
@@ -183,7 +224,7 @@ public class CPU {
 	 * 
 	 * Prints the values of the registers. Useful for debugging.
 	 */
-	private void regDump() {
+	public void regDump() {
 		for (int i = 0; i < NUMGENREG; i++) {
 			System.out.print("r" + i + "=" + m_registers[i] + " ");
 		}// for
@@ -268,10 +309,7 @@ public class CPU {
 	 * @returns The value that was on the top of the stack
 	 */
 	private int pop() {
-		if (!checkLimit(getBASE() + getSP() + 1)) {
-			System.err.println("RAM access out of bounds for pop instruction");
-			return -1;
-		}
+		checkLimit(getBASE() + getSP() + 1);
 		int stackTop = m_RAM.read(getBASE()+getSP());
 
 		// decrement the stack pointer
@@ -289,10 +327,7 @@ public class CPU {
 	 *            value to be pushed to RAM
 	 */
 	private void push(int toPush) {
-		if (!checkLimit(getBASE() + getSP() - 1)) {
-			System.err.println("RAM access out of bounds for push instruction");
-			return;
-		}
+		checkLimit(getBASE() + getSP() - 1);
 
 		// increment the stack pointer
 		setSP(getSP() - 1);
@@ -308,22 +343,20 @@ public class CPU {
 	 * @param the
 	 *            value to be pushed to RAM
 	 */
-	private boolean checkLimit(int addr) {
+	private void checkLimit(int addr) {
 
 		if (addr < getBASE()) {
-			return false;
+			m_TH.interruptIllegalMemoryAccess(addr);
 		} else if (getBASE() + getLIM() < addr) {
-			return false;
-		} else {
-			return true;
+			m_TH.interruptIllegalMemoryAccess(addr);
 		}
 	}
 
 	// <insert method header here>
 	public void run() {
-		while (true) {
+		while (getPC() < getBASE()) {
 			// ensure PC is in bounds
-			checkLimit(getPC());
+			//checkLimit(getPC());
 			
 			// Fetch the next instruction and increment the PC
 			int[] instr = m_RAM.fetch(getBASE() + getPC());
@@ -353,6 +386,9 @@ public class CPU {
 						* m_registers[instr[3]];
 				break;
 			case DIV:
+				if (m_registers[instr[3]] == 0) {
+					m_TH.interruptDivideByZero();
+				}
 				m_registers[instr[1]] = m_registers[instr[2]]
 						/ m_registers[instr[3]];
 				break;
@@ -380,33 +416,31 @@ public class CPU {
 				break;
 			case LOAD:
 				// make sure the register to load is in bounds
-				if (!checkLimit(m_registers[instr[2]] + getBASE())) {
-					System.err
-							.println("Out of bounds memory access for LOAD instruction");
-					return;
-				}
+//				if (!checkLimit(m_registers[instr[2]] + getBASE())) {
+//					System.err
+//							.println("Out of bounds memory access for LOAD instruction");
+//					return;
+//				}
+				checkLimit(m_registers[instr[2]] + getBASE());
 				m_registers[instr[1]] = m_RAM.read(m_registers[instr[2]]
 						+ getBASE());
 				break;
 			case SAVE:
 				// make sure the register to save is in bounds
-				if (!checkLimit(m_registers[instr[2]] + getBASE())) {
-					System.err
-							.println("Out of bounds memory access for SAVE instruction");
-					return;
-				}
+				checkLimit(m_registers[instr[2]] + getBASE());
+				
 				m_RAM.write(m_registers[instr[2]] + getBASE(),
 						m_registers[instr[1]]);
 				break;
 			case TRAP:
-				// do nothing for assignment 1
-				return;
+				m_TH.systemCall();
+				break;
 			default: // should never be reached
 				System.out.println("?? ");
 				break;
 			}// switch
-
 		}// while
 	}// run
+	
 
 };// class CPU
