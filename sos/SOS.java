@@ -108,7 +108,11 @@ public class SOS implements CPU.TrapHandler
      *----------------------------------------------------------------------
      */
 
-    //insert method header here
+    /**
+     *
+     * @param the program with the instuctions to run
+     * @param the size of the memory allocated for the program
+     */
     public void createProcess(Program prog, int allocSize)
     {
         int[] prog_instructions = prog.export();
@@ -134,16 +138,42 @@ public class SOS implements CPU.TrapHandler
      *----------------------------------------------------------------------
      */
 
+    /**
+     * interuptIllegalMemoryAccess
+     *
+     * helper method that prints out an error that notifies the user of illegal memory access
+     * and exits
+     *
+     * @param the address of the illegal memory access
+     *
+     */
     public void interruptIllegalMemoryAccess(int addr) {
     	System.err.print("Illegal memory access attempted on PC " + m_CPU.getPC() + " at memory address " + addr);
     	System.exit(0);
     }
     
+    /**
+     * interuptDivideByZero
+     *
+     * helper method that prints out an error that notifies the user of a divide by
+     * zero interrupt and exits
+     *
+     *
+     */
     public void interruptDivideByZero() {
     	System.err.print("Divide by zero error at PC " + m_CPU.getPC());
     	System.exit(0);
     }
     
+    /**
+     * interuptIllegalInstruction
+     *
+     * helper method prints out an error that notifies the user of an illegal instruction
+     * and exits
+     *
+     * @param an array containing
+     *
+     */
     public void interruptIllegalInstruction(int[] instr) {
     	System.err.print("Illegal instruction attempted at PC " + m_CPU.getPC());
     	System.exit(0);
@@ -154,7 +184,15 @@ public class SOS implements CPU.TrapHandler
      *----------------------------------------------------------------------
      */
     
-    //<insert header comment here>
+    /**
+     * systemCall
+     *
+     * handles when a system call occurs, by determining
+     * from the number stored at the top of the stack, which
+     * system call occured, and executing the appropriate one
+     *
+     *
+     */
     public void systemCall()
     {
     	int syscall = popHelper();
@@ -171,16 +209,22 @@ public class SOS implements CPU.TrapHandler
         		break;
         }
     }
-    
+
     private void syscall_exit () {
     	System.exit(0);
     }
     
+    /**
+     *Returns the PID of the current process
+     */
     private void syscall_output () {
     	int val = popHelper();
     	System.out.println("OUTPUT: " + val);
     }
     
+    /** 
+     *the PID of the current process is always 42, for now
+     */
     private void syscall_getpid () {
     	pushHelper(42);
     }
@@ -191,11 +235,19 @@ public class SOS implements CPU.TrapHandler
     	syscall_exit();
     }
     
+    /**
+     *pushes an int to the stack
+     *
+     * @param the value to be pushed to the stack
+     */
     private void pushHelper (int val) {
     	m_CPU.setSP(m_CPU.getSP()-1);
     	m_RAM.write(m_CPU.getBASE() + m_CPU.getSP(), val);
     }
     
+    /**
+     *pops the top most element from the stack
+     */
     private int popHelper () {
     	int syscallOption = m_RAM.read(m_CPU.getBASE()+m_CPU.getSP());
     	m_CPU.setSP(m_CPU.getSP()+1);

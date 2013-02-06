@@ -338,10 +338,11 @@ public class CPU {
 	/**
 	 * checkLimit
 	 * 
-	 * Increments the stack and pushes a value to it
-	 * 
-	 * @param the
-	 *            value to be pushed to RAM
+     * ensures the given address is in legal memory
+     * calls a interrupt if it is not
+     *
+	 * @param the address to check the bounds of
+	 *
 	 */
 	private void checkLimit(int addr) {
 
@@ -352,11 +353,15 @@ public class CPU {
 		}
 	}
 
-	// <insert method header here>
+	/**
+     * run
+     *
+     * Determines which instruction to execute based on the 
+     * contents of RAM at the appropriate PC location
+     *
+     */
 	public void run() {
 		while (getPC() < getBASE()) {
-			// ensure PC is in bounds
-			//checkLimit(getPC());
 			
 			// Fetch the next instruction and increment the PC
 			int[] instr = m_RAM.fetch(getBASE() + getPC());
@@ -416,11 +421,6 @@ public class CPU {
 				break;
 			case LOAD:
 				// make sure the register to load is in bounds
-//				if (!checkLimit(m_registers[instr[2]] + getBASE())) {
-//					System.err
-//							.println("Out of bounds memory access for LOAD instruction");
-//					return;
-//				}
 				checkLimit(m_registers[instr[2]] + getBASE());
 				m_registers[instr[1]] = m_RAM.read(m_registers[instr[2]]
 						+ getBASE());
