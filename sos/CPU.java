@@ -401,14 +401,17 @@ public class CPU {
 				m_registers[instr[1]] = m_registers[instr[2]];
 				break;
 			case BRANCH:
+				checkLimit(instr[1]+getBASE());
 				setPC(instr[1]);
 				break;
 			case BNE:
+				checkLimit(instr[3]+getBASE());
 				if (m_registers[instr[1]] != m_registers[instr[2]]) {
 					setPC(instr[3]);
 				}
 				break;
 			case BLT:
+				checkLimit(instr[3]+getBASE());
 				if (m_registers[instr[1]] < m_registers[instr[2]]) {
 					setPC(instr[3]);
 				}
