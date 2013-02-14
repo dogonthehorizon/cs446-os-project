@@ -1,5 +1,12 @@
 package sos;
 
+/**
+ * This class implements a device driver for a keyboard.
+ * 
+ * @authors Et Begert, Fernando Freire
+ *
+ */
+
 public class KeyboardDevice implements Device{
 
 	@Override

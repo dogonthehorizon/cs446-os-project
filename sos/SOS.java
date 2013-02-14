@@ -8,7 +8,7 @@ import java.util.*;
  * the real-world processor in order to allow a focus on the essentials of
  * operating system design using a high level programming language.
  *
- * @author Vincent Clasgens, Aaron Dobbe
+ * @author Vincent Clasgens, Aaron Dobbe, Fernando Freire, Et Begert
  */
    
 public class SOS implements CPU.TrapHandler 
@@ -27,6 +27,15 @@ public class SOS implements CPU.TrapHandler
     public static final int SYSCALL_READ     = 5;    /* get input from device */
     public static final int SYSCALL_WRITE    = 6;    /* send output to device */
     public static final int SYSCALL_COREDUMP = 9;    /* print process state and exit */
+    
+    //These constants define op codes for device access
+    public static final int OP_SUCCESS		 	  =  0;	 /* Device operation successful */
+    public static final int OP_DEVICE_DNE	 	  = -1;	 /* Device does not exist */
+    public static final int OP_DEV_NOT_SHAREABLE  = -2;  /* Device is not shareable */
+    public static final int OP_DEV_ALREADY_OPEN   = -3;  /* Device has already been opened by the process*/
+    public static final int OP_DEV_NOT_OPENED     = -4;  /* Illegal device access */
+    public static final int OP_DEV_READONLY       = -5;  /* Device is ready-only */
+    public static final int OP_DEV_WRITEONLY      = -6;  /* Device is write-only */
     
     //======================================================================
     //Member variables
@@ -260,10 +269,10 @@ public class SOS implements CPU.TrapHandler
     }
     
     /** 
-     *the PID of the current process is always 42, for now
+     *the PID of the current process.
      */
     private void syscall_getpid () {
-    	pushHelper(42);
+    	m_currProcess.getProcessId();
     }
     
     private void syscall_coredump () {
@@ -273,19 +282,138 @@ public class SOS implements CPU.TrapHandler
     }
     
     private void syscall_open() {
+    	int deviceID = popHelper();
+
+    	Object[] deviceCheck = deviceIdentifier(deviceID);
+
+    	if((Integer) deviceCheck[1] != OP_SUCCESS) {
+    		// Device does not exist.
+    		pushHelper((Integer) deviceCheck[1]);
+    		return;
+    	}
+
+    	DeviceInfo deviceInfo = (DeviceInfo) deviceCheck[0];
     	
+    	if (!deviceInfo.device.isSharable()){
+    		pushHelper(OP_DEV_NOT_SHAREABLE);
+    		return;
+    	}
+    	if(!(deviceInfo.device.isAvailable())){
+    		pushHelper(OP_DEV_ALREADY_OPEN);
+    		return;
+    	}
+    	deviceInfo.addProcess(m_currProcess);
+    	pushHelper(OP_SUCCESS);
     }
     
     private void syscall_close() {
+    	int deviceID = popHelper();
     	
+    	Object[] deviceCheck = deviceIdentifier(deviceID);
+    	
+    	if((Integer) deviceCheck[1] != OP_SUCCESS) {
+    		// Device does not exist.
+    		pushHelper((Integer) deviceCheck[1]);
+    		return;
+    	}
+    	
+    	DeviceInfo deviceInfo = (DeviceInfo) deviceCheck[0];
+    	
+    	if(!(deviceInfo.procs.firstElement() == m_currProcess)) {
+    		pushHelper(OP_DEV_NOT_OPENED);
+    		return;
+    	}
+
+    	deviceInfo.removeProcess(m_currProcess);
+    	pushHelper(OP_SUCCESS);
     }
     
     private void syscall_read () {
+    	int address = popHelper();
+    	int deviceID = popHelper();
     	
+    	Object[] deviceCheck = deviceIdentifier(deviceID);
+    	
+    	if((Integer) deviceCheck[1] != OP_SUCCESS) {
+    		// Device does not exist.
+    		pushHelper((Integer) deviceCheck[1]);
+    		return;
+    	}
+    	
+    	DeviceInfo deviceInfo = (DeviceInfo) deviceCheck[0];
+    	
+    	if(!(deviceInfo.procs.firstElement() == m_currProcess)) {
+    		pushHelper(OP_DEV_NOT_OPENED);
+    		return;
+    	}
+    	
+    	if(!deviceInfo.device.isReadable()) {
+    		pushHelper(OP_DEV_WRITEONLY);
+    		return;
+    	}
+
+    	int value = deviceInfo.device.read(address);
+    	pushHelper(value);
+    	pushHelper(OP_SUCCESS);
     }
     
     private void syscall_write () {
+    	int value = popHelper();
+    	int address = popHelper();
+    	int deviceID = popHelper();
     	
+    	Object[] deviceCheck = deviceIdentifier(deviceID);
+    	
+    	if((Integer) deviceCheck[1] != OP_SUCCESS) {
+    		// Device does not exist.
+    		pushHelper((Integer) deviceCheck[1]);
+    		return;
+    	}
+    	
+    	DeviceInfo deviceInfo = (DeviceInfo) deviceCheck[0];
+    	
+    	if(!(deviceInfo.procs.firstElement() == m_currProcess)) {
+    		pushHelper(OP_DEV_NOT_OPENED);
+    		return;
+    	}
+    	
+    	if (!deviceInfo.device.isWriteable()){
+    		pushHelper(OP_DEV_READONLY);
+    	}
+
+    	deviceInfo.device.write(address, value);
+    	pushHelper(OP_SUCCESS);
+    }
+    
+    /**
+     * deviceIdentifier will iterate over the vector of devices
+     * to find the correct device.
+     * 
+     * @param deviceID the ID of the device we want.
+     * 
+     */
+    private Object[] deviceIdentifier (int deviceID) {
+    	/* We want to return a device if we find one, but
+    	*  if we don't, then we want to return the proper OP
+    	*  code. This is the reason for the odd array.
+    	*/
+    	Object[] returnItems = new Object[2];
+    	
+    	Iterator<DeviceInfo> itr = m_devices.iterator();
+    	DeviceInfo deviceInfo = null;
+    	
+    	while(itr.hasNext()) {
+    		deviceInfo = itr.next();
+    		if (deviceInfo.getId() == deviceID) {
+    			
+    			returnItems[0] = deviceInfo;
+    			returnItems[1] = OP_SUCCESS;
+    			return returnItems;
+    		}
+    	}
+    	returnItems[0] = null;
+    	returnItems[1] = OP_DEVICE_DNE;
+    	return returnItems;
     }
     
     /**

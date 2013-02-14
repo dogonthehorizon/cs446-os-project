@@ -12,7 +12,7 @@ import java.util.*;
  * @see Program
  * @see Sim
  * 
- * @author Vincent Clasgens, Aaron Dobbe, Fernando Freire
+ * @author Vincent Clasgens, Aaron Dobbe, Fernando Freire, Et Begert
  */
 
 public class CPU {
@@ -54,12 +54,6 @@ public class CPU {
 	public static final int INSTRSIZE = 4; // number of ints in a single instr +
 											// args. (Set to a fixed value for
 											// simplicity.)
-	
-    //These constants define the system calls this OS can currently handle
-    public static final int SYSCALL_EXIT     = 0;    /* exit the current program */
-    public static final int SYSCALL_OUTPUT   = 1;    /* outputs a number */
-    public static final int SYSCALL_GETPID   = 2;    /* get current process id */
-    public static final int SYSCALL_COREDUMP = 9;    /* print process state and exit */
 
 	// ======================================================================
 	// Member variables
