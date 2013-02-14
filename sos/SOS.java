@@ -433,7 +433,7 @@ public class SOS implements CPU.TrapHandler
     			return returnItems;
     		}
     	}
-    	returnItems[0] = null;
+    	returnItems[0] = deviceInfo; //should return null
     	returnItems[1] = OP_DEVICE_DNE;
     	return returnItems;
     }//deviceIdentifier

@@ -72,7 +72,7 @@ public class Sim
 
         //Load the program into RAM
         Program prog = new Program();
-        if (prog.load("readwrite.asm", false) != 0)
+        if (prog.load("begert13_freire14.asm", false) != 0)
         {
             //Error loading program so exit
             return;
