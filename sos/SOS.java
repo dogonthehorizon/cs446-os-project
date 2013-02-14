@@ -63,7 +63,7 @@ public class SOS implements CPU.TrapHandler
     private ProcessControlBlock m_currProcess = null;
     
     /**
-     * A vector of currently attached I/O devices.
+     * The vector of currently attached I/O devices.
      */
     private Vector<DeviceInfo> m_devices = null;
 
@@ -147,8 +147,9 @@ public class SOS implements CPU.TrapHandler
      */
 
     /**
+     * createProcess
      *
-     * @param the program with the instuctions to run
+     * @param the program with the instructions to run
      * @param the size of the memory allocated for the program
      */
     public void createProcess(Program prog, int allocSize)
@@ -188,7 +189,7 @@ public class SOS implements CPU.TrapHandler
     public void interruptIllegalMemoryAccess(int addr) {
     	System.err.print("Illegal memory access attempted on PC " + m_CPU.getPC() + " at memory address " + addr);
     	System.exit(0);
-    }
+    }//interruptIllegalMemoryAccess
     
     /**
      * interuptDivideByZero
@@ -201,7 +202,7 @@ public class SOS implements CPU.TrapHandler
     public void interruptDivideByZero() {
     	System.err.print("Divide by zero error at PC " + m_CPU.getPC());
     	System.exit(0);
-    }
+    }//interruptDivideByZero
     
     /**
      * interuptIllegalInstruction
@@ -215,7 +216,7 @@ public class SOS implements CPU.TrapHandler
     public void interruptIllegalInstruction(int[] instr) {
     	System.err.print("Illegal instruction attempted at PC " + m_CPU.getPC());
     	System.exit(0);
-    }
+    }//interruptIllegalInstruction
     
     /*======================================================================
      * System Calls
@@ -225,31 +226,30 @@ public class SOS implements CPU.TrapHandler
     /**
      * systemCall
      *
-     * handles when a system call occurs, by determining
+     * Handles when a system call occurs, by determining
      * from the number stored at the top of the stack, which
-     * system call occured, and executing the appropriate one
-     *
+     * system call occurred, and executing the appropriate one
      *
      */
     public void systemCall()
     {
     	int syscall = popHelper();
         switch(syscall){
-        	case SYSCALL_EXIT: syscall_exit();
+        	case SYSCALL_EXIT: 		syscall_exit();
         		break;
-        	case SYSCALL_OUTPUT: syscall_output();
+        	case SYSCALL_OUTPUT: 	syscall_output();
         		break;
-        	case SYSCALL_GETPID: syscall_getpid();
+        	case SYSCALL_GETPID: 	syscall_getpid();
         		break;
-        	case SYSCALL_COREDUMP: syscall_coredump();
+        	case SYSCALL_COREDUMP: 	syscall_coredump();
         		break;
-        	case SYSCALL_OPEN: syscall_open();
+        	case SYSCALL_OPEN: 		syscall_open();
         		break;
-        	case SYSCALL_CLOSE: syscall_close();
+        	case SYSCALL_CLOSE:		syscall_close();
         		break;
-        	case SYSCALL_READ: syscall_read();
+        	case SYSCALL_READ: 		syscall_read();
         		break;
-        	case SYSCALL_WRITE: syscall_write();
+        	case SYSCALL_WRITE:		syscall_write();
         		break;
         	default:
         		break;
@@ -260,16 +260,16 @@ public class SOS implements CPU.TrapHandler
     	System.exit(0);
     }//syscall_exit
     
-    /**
-     *Returns the PID of the current process
-     */
+
     private void syscall_output () {
     	int val = popHelper();
     	System.out.println("OUTPUT: " + val);
     }//syscall_output
     
-    /** 
-     *the PID of the current process.
+    /**
+     * syscall_getpid
+     * 
+     * The pid of the current process.
      */
     private void syscall_getpid () {
     	m_currProcess.getProcessId();
@@ -281,6 +281,11 @@ public class SOS implements CPU.TrapHandler
     	syscall_exit();
     }//syscall_coredump
     
+    /**
+     * syscall_open
+     * 
+     * This functions attempts to open a given device.
+     */
     private void syscall_open() {
     	int deviceID = popHelper();
 
@@ -305,6 +310,11 @@ public class SOS implements CPU.TrapHandler
     	pushHelper(OP_SUCCESS);
     }//syscall_open
     
+    /**
+     * syscall_close
+     * 
+     * This function attempts to close a given device.
+     */
     private void syscall_close() {
     	int deviceID = popHelper();
     	
@@ -327,6 +337,11 @@ public class SOS implements CPU.TrapHandler
     	pushHelper(OP_SUCCESS);
     }//syscall_close
     
+    /**
+     * syscall_read
+     * 
+     * The function attempts to read from a given device.
+     */
     private void syscall_read () {
     	int address = popHelper();
     	int deviceID = popHelper();
@@ -356,6 +371,11 @@ public class SOS implements CPU.TrapHandler
     	pushHelper(OP_SUCCESS);
     }//syscall_read
     
+    /**
+     * syscall_write
+     * 
+     * This function attempts to write to a given device.
+     */
     private void syscall_write () {
     	int value = popHelper();
     	int address = popHelper();
@@ -385,17 +405,20 @@ public class SOS implements CPU.TrapHandler
     }//syscall_write
     
     /**
-     * deviceIdentifier will iterate over the vector of devices
-     * to find the correct device.
+     * deviceIdentifier
+     * 
+     * This function will iterate over the current vector of devices
+     * and attempt to retrieve the device by deviceID.
      * 
      * @param deviceID the ID of the device we want.
      * 
+     * @return returnItems Since Java does not support tuple data types
+     * we have decided to create a simple two object array to pass back
+     * a DeviceInfo object as well as an appropriate OP code if an error
+     * is found.
+     * 
      */
     private Object[] deviceIdentifier (int deviceID) {
-    	/* We want to return a device if we find one, but
-    	*  if we don't, then we want to return the proper OP
-    	*  code. This is the reason for the odd array.
-    	*/
     	Object[] returnItems = new Object[2];
     	
     	Iterator<DeviceInfo> itr = m_devices.iterator();
@@ -416,7 +439,9 @@ public class SOS implements CPU.TrapHandler
     }//deviceIdentifier
     
     /**
-     *pushes an int to the stack
+     * pushHelper
+     * 
+     * Pushes an int to the stack
      *
      * @param the value to be pushed to the stack
      */
@@ -426,7 +451,9 @@ public class SOS implements CPU.TrapHandler
     }//pushHelper
     
     /**
-     *pops the top most element from the stack
+     * popHelper
+     * 
+     * Pops the top most element from the stack
      */
     private int popHelper () {
     	int syscallOption = m_RAM.read(m_CPU.getBASE()+m_CPU.getSP());
