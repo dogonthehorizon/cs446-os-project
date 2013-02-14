@@ -258,7 +258,7 @@ public class SOS implements CPU.TrapHandler
 
     private void syscall_exit () {
     	System.exit(0);
-    }
+    }//syscall_exit
     
     /**
      *Returns the PID of the current process
@@ -266,20 +266,20 @@ public class SOS implements CPU.TrapHandler
     private void syscall_output () {
     	int val = popHelper();
     	System.out.println("OUTPUT: " + val);
-    }
+    }//syscall_output
     
     /** 
      *the PID of the current process.
      */
     private void syscall_getpid () {
     	m_currProcess.getProcessId();
-    }
+    }//syscall_getpid
     
     private void syscall_coredump () {
     	m_CPU.regDump();
     	System.out.println("Top three items on the process stack (descending order): " + popHelper() + " " + popHelper() + " " + popHelper());
     	syscall_exit();
-    }
+    }//syscall_coredump
     
     private void syscall_open() {
     	int deviceID = popHelper();
@@ -291,10 +291,9 @@ public class SOS implements CPU.TrapHandler
     		pushHelper((Integer) deviceCheck[1]);
     		return;
     	}
-
     	DeviceInfo deviceInfo = (DeviceInfo) deviceCheck[0];
     	
-    	if (!deviceInfo.device.isSharable()){
+    	if ((!deviceInfo.device.isSharable()) && (!deviceInfo.device.isAvailable())){
     		pushHelper(OP_DEV_NOT_SHAREABLE);
     		return;
     	}
@@ -304,7 +303,7 @@ public class SOS implements CPU.TrapHandler
     	}
     	deviceInfo.addProcess(m_currProcess);
     	pushHelper(OP_SUCCESS);
-    }
+    }//syscall_open
     
     private void syscall_close() {
     	int deviceID = popHelper();
@@ -323,10 +322,10 @@ public class SOS implements CPU.TrapHandler
     		pushHelper(OP_DEV_NOT_OPENED);
     		return;
     	}
-
+    	
     	deviceInfo.removeProcess(m_currProcess);
     	pushHelper(OP_SUCCESS);
-    }
+    }//syscall_close
     
     private void syscall_read () {
     	int address = popHelper();
@@ -351,11 +350,11 @@ public class SOS implements CPU.TrapHandler
     		pushHelper(OP_DEV_WRITEONLY);
     		return;
     	}
-
+    	
     	int value = deviceInfo.device.read(address);
     	pushHelper(value);
     	pushHelper(OP_SUCCESS);
-    }
+    }//syscall_read
     
     private void syscall_write () {
     	int value = popHelper();
@@ -383,7 +382,7 @@ public class SOS implements CPU.TrapHandler
 
     	deviceInfo.device.write(address, value);
     	pushHelper(OP_SUCCESS);
-    }
+    }//syscall_write
     
     /**
      * deviceIdentifier will iterate over the vector of devices
@@ -414,7 +413,7 @@ public class SOS implements CPU.TrapHandler
     	returnItems[0] = null;
     	returnItems[1] = OP_DEVICE_DNE;
     	return returnItems;
-    }
+    }//deviceIdentifier
     
     /**
      *pushes an int to the stack
@@ -424,7 +423,7 @@ public class SOS implements CPU.TrapHandler
     private void pushHelper (int val) {
     	m_CPU.setSP(m_CPU.getSP()-1);
     	m_RAM.write(m_CPU.getBASE() + m_CPU.getSP(), val);
-    }
+    }//pushHelper
     
     /**
      *pops the top most element from the stack
@@ -433,7 +432,7 @@ public class SOS implements CPU.TrapHandler
     	int syscallOption = m_RAM.read(m_CPU.getBASE()+m_CPU.getSP());
     	m_CPU.setSP(m_CPU.getSP()+1);
     	return syscallOption;
-    }
+    }//pushHelper
     
     //======================================================================
     // Inner Classes

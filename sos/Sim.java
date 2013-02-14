@@ -47,9 +47,7 @@ public class Sim
             return;
         }
         os.createProcess(prog,  500);
-
         cpu.run();
-        
     }//runSimple
 
     /**
@@ -80,7 +78,6 @@ public class Sim
             return;
         }
         os.createProcess(prog,  500);
-
         cpu.run();
         
     }//runIO
@@ -93,7 +90,7 @@ public class Sim
      */
     public static void main(String[] args)
     {
-        runSimple();  //%%%You will eventually replace this with a call to runIO(); 
+        runIO();
         
         System.out.println("END OF SIMULATION");
 

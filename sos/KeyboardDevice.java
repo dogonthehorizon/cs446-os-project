@@ -1,60 +1,96 @@
 package sos;
 
+import java.util.*;
+
 /**
  * This class implements a device driver for a keyboard.
  * 
  * @authors Et Begert, Fernando Freire
+ * @see ConsoleDevice Comments graciously borrowed from Porf. Nuxoll.
  *
  */
 
 public class KeyboardDevice implements Device{
+	
+	private int m_id = -999; //OS sets the device id
 
-	@Override
+    /**
+     * getId
+     *
+     * @return the device id of this device
+     */
     public int getId() {
-	    // TODO Auto-generated method stub
-	    return 0;
+	    return m_id;
     }
 
-	@Override
+    /**
+     * setId
+     *
+     * sets the device id of this device
+     *
+     * @param id the new id
+     */
     public void setId(int id) {
-	    // TODO Auto-generated method stub
+	    m_id = id;
 	    
     }
 
-	@Override
+    /**
+     * isSharable
+     *
+     * This device can be used simultaneously by multiple processes
+     *
+     * @return true
+     */
     public boolean isSharable() {
-	    // TODO Auto-generated method stub
 	    return false;
     }
 
-	@Override
+    /**
+     * isAvailable
+     *
+     * this device is available if no requests are currently being processed
+     */
     public boolean isAvailable() {
-	    // TODO Auto-generated method stub
-	    return false;
+	    return true;
     }
 
-	@Override
+    /**
+     * isReadable
+     *
+     * @return whether this device can be read from (true/false)
+     */
     public boolean isReadable() {
-	    // TODO Auto-generated method stub
-	    return false;
+	    return true;
     }
 
-	@Override
+    /**
+     * isWriteable
+     *
+     * @return whether this device can be written to (true/false)
+     */
     public boolean isWriteable() {
-	    // TODO Auto-generated method stub
 	    return false;
     }
 
-	@Override
+    /**
+     * read
+     *
+     * @return For now, return a random integer between 0 and 9.
+     * 
+     */
     public int read(int addr) {
-	    // TODO Auto-generated method stub
-	    return 0;
+    	Random generator = new Random();
+	    return generator.nextInt(10);
     }
 
-	@Override
+    /**
+     * write
+     *
+     * Not implemented.
+     */
     public void write(int addr, int data) {
-	    // TODO Auto-generated method stub
-	    
+	    // do nothing
     }
 	
 	
