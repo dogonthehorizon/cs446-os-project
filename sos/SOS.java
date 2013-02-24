@@ -155,7 +155,6 @@ public class SOS implements CPU.TrapHandler
     public void createProcess(Program prog, int allocSize)
     {
         int[] prog_instructions = prog.export();
-        
         // allocate memory
         int base = 500;
         int limit = allocSize;
