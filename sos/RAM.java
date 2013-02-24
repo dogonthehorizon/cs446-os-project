@@ -130,7 +130,7 @@ public class RAM
                 Thread.sleep(0, m_latency);
             }
             catch(InterruptedException ie)
-            {/* do nothing*/ }
+            {/* do nothing*/}
         }
         
         m_mem[addr] = val;
