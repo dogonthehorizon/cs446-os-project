@@ -60,7 +60,7 @@ public class SOS implements CPU.TrapHandler
      * This flag causes the SOS to print lots of potentially helpful status
      * messages
      **/
-    public static final boolean m_verbose = true;
+    public static final boolean m_verbose = false;
     
     /**
      * Position to load the next program into.
@@ -279,6 +279,7 @@ public class SOS implements CPU.TrapHandler
         m_CPU.setSP(baseAddr + progArr.length + 10);
         m_CPU.setBASE(baseAddr);
         m_CPU.setLIM(baseAddr + progArr.length + 20);
+        //m_nextLoadPos = m_CPU.getLIM();
 
         //Save the relevant info as a new entry in m_processes
         m_currProcess = new ProcessControlBlock(IDLE_PROC_ID);  
@@ -575,6 +576,12 @@ public class SOS implements CPU.TrapHandler
             }
         }
     }
+    
+	@Override
+    public void interruptClock() {
+	    // TODO Auto-generated method stub
+	    scheduleNewProcess();
+    } //interruptClock
 
     /*
      * ======================================================================
@@ -590,6 +597,7 @@ public class SOS implements CPU.TrapHandler
      */
     private void syscallExit()
     {
+    	//scheduleNewProcess();
         removeCurrentProcess();
     }
 
@@ -772,7 +780,7 @@ public class SOS implements CPU.TrapHandler
      */
     private void syscallWrite()
     {
-        int value = pop(); // TODO figure out how we aren't losing this
+        int value = pop();
         int addr = pop();
         int devId = pop();
 
@@ -821,34 +829,58 @@ public class SOS implements CPU.TrapHandler
      * syscallExec
      *
      * creates a new process.  The program used to create that process is chosen
-     * randomly from all the programs that have been registered with the OS via
-     * {@link #addProgram}.  If no programs have been registered then this system
-     * call does nothing.
+     * semi-randomly from all the programs that have been registered with the OS
+     * via {@link #addProgram}.  Limits are put into place to ensure that each
+     * process is run an equal number of times.  If no programs have been
+     * registered then the simulation is aborted with a fatal error.
      *
      */
     private void syscallExec()
     {
-        if (m_programs.size() > 0)
+        //If there is nothing to run, abort.  This should never happen.
+        if (m_programs.size() == 0)
         {
-            //Select a random program
-            int pn = ((int)(Math.random() * 2147483647)) % m_programs.size();
-            Program prog = m_programs.get(pn);
-
-            //Determine the address space size using the default if available.
-            //Otherwise, use a multiple of the program size.
-            int allocSize = prog.getDefaultAllocSize();
-            if (allocSize <= 0)
+            System.err.println("ERROR!  syscallExec has no programs to run.");
+            System.exit(-1);
+        }
+        
+        //find out which program has been called the least and record how many
+        //times it has been called
+        int leastCallCount = m_programs.get(0).callCount;
+        for(Program prog : m_programs)
+        {
+            if (prog.callCount < leastCallCount)
             {
-                allocSize = prog.getSize() * 2;
+                leastCallCount = prog.callCount;
             }
+        }
 
-            //Load the program into RAM
-            createProcess(prog, allocSize);
+        //Create a vector of all programs that have been called the least number
+        //of times
+        Vector<Program> cands = new Vector<Program>();
+        for(Program prog : m_programs)
+        {
+            cands.add(prog);
+        }
+        
+        //Select a random program from the candidates list
+        Random rand = new Random();
+        int pn = rand.nextInt(m_programs.size());
+        Program prog = cands.get(pn);
 
-            //Adjust the PC since it's about to be incremented by the CPU
-            m_CPU.setPC(m_CPU.getPC() - CPU.INSTRSIZE);
+        //Determine the address space size using the default if available.
+        //Otherwise, use a multiple of the program size.
+        int allocSize = prog.getDefaultAllocSize();
+        if (allocSize <= 0)
+        {
+            allocSize = prog.getSize() * 2;
+        }
 
-        }//if
+        //Load the program into RAM
+        createProcess(prog, allocSize);
+
+        //Adjust the PC since it's about to be incremented by the CPU
+        m_CPU.setPC(m_CPU.getPC() - CPU.INSTRSIZE);
 
     }//syscallExec
 
@@ -922,6 +954,34 @@ public class SOS implements CPU.TrapHandler
          * address is stored here.
          */
         private int blockedForAddr = -1;
+        
+        /**
+         * the time it takes to load and save registers, specified as a number
+         * of CPU ticks
+         */
+        private static final int SAVE_LOAD_TIME = 30;
+        
+        /**
+         * Used to store the system time when a process is moved to the Ready
+         * state.
+         */
+        private int lastReadyTime = -1;
+        
+        /**
+         * Used to store the number of times this process has been in the ready
+         * state
+         */
+        private int numReady = 0;
+        
+        /**
+         * Used to store the maximum starve time experienced by this process
+         */
+        private int maxStarve = -1;
+        
+        /**
+         * Used to store the average starve time for this process
+         */
+        private double avgStarve = 0;
 
         /**
          * constructor
@@ -952,12 +1012,26 @@ public class SOS implements CPU.TrapHandler
          */
         public void save(CPU cpu)
         {
+            //A context switch is expensive.  We simulate that here by 
+            //adding ticks to m_CPU
+            m_CPU.addTicks(SAVE_LOAD_TIME);
+            
+            //Save the registers
             int[] regs = cpu.getRegisters();
             this.registers = new int[CPU.NUMREG];
             for(int i = 0; i < CPU.NUMREG; i++)
             {
                 this.registers[i] = regs[i];
             }
+
+            //Assuming this method is being called because the process is moving
+            //out of the Running state, record the current system time for
+            //calculating starve times for this process.  If this method is
+            //being called for a Block, we'll adjust lastReadyTime in the
+            //unblock method.
+            numReady++;
+            lastReadyTime = m_CPU.getTicks();
+            
         }//save
          
         /**
@@ -970,12 +1044,26 @@ public class SOS implements CPU.TrapHandler
          */
         public void restore(CPU cpu)
         {
+            //A context switch is expensive.  We simluate that here by 
+            //adding ticks to m_CPU
+            m_CPU.addTicks(SAVE_LOAD_TIME);
+            
+            //Restore the register values
             int[] regs = cpu.getRegisters();
             for(int i = 0; i < CPU.NUMREG; i++)
             {
                 regs[i] = this.registers[i];
             }
 
+            //Record the starve time statistics
+            int starveTime = m_CPU.getTicks() - lastReadyTime;
+            if (starveTime > maxStarve)
+            {
+                maxStarve = starveTime;
+            }
+            double d_numReady = (double)numReady;
+            avgStarve = avgStarve * (d_numReady - 1.0) / d_numReady;
+            avgStarve = avgStarve + (starveTime * (1.0 / d_numReady));
         }//restore
          
         /**
@@ -1010,11 +1098,17 @@ public class SOS implements CPU.TrapHandler
          */
         public void unblock()
         {
+            //Reset the info about the block
             blockedForDevice = null;
             blockedForOperation = -1;
             blockedForAddr = -1;
             
-        }//block
+            //Assuming this method is being called because the process is moving
+            //from the Blocked state to the Ready state, record the current
+            //system time for calculating starve times for this process.
+            lastReadyTime = m_CPU.getTicks();
+            
+        }//unblock
         
         /**
          * isBlocked
@@ -1110,9 +1204,34 @@ public class SOS implements CPU.TrapHandler
             
             this.registers[idx] = val;
         }//setRegisterValue
+        
+        /**
+         * overallAvgStarve
+         *
+         * @return the overall average starve time for all currently running
+         *         processes
+         *
+         */
+        public double overallAvgStarve()
+        {
+            double result = 0.0;
+            int count = 0;
+            for(ProcessControlBlock pi : m_processes)
+            {
+                if (pi.avgStarve > 0)
+                {
+                    result = result + pi.avgStarve;
+                    count++;
+                }
+            }
+            if (count > 0)
+            {
+                result = result / count;
+            }
+            
+            return result;
+        }//overallAvgStarve
          
-    
-
         /**
          * toString       **DEBUGGING**
          *
@@ -1120,10 +1239,12 @@ public class SOS implements CPU.TrapHandler
          */
         public String toString()
         {
+            //Print the Process ID and process state (READY, RUNNING, BLOCKED)
             String result = "Process id " + processId + " ";
             if (isBlocked())
             {
                 result = result + "is BLOCKED for ";
+                //Print device, syscall and address that caused the BLOCKED state
                 if (blockedForOperation == SYSCALL_OPEN)
                 {
                     result = result + "OPEN";
@@ -1151,6 +1272,8 @@ public class SOS implements CPU.TrapHandler
                 result = result + "is READY: ";
             }
 
+            //Print the register values stored in this object.  These don't
+            //necessarily match what's on the CPU for a Running process.
             if (registers == null)
             {
                 result = result + "<never saved>";
@@ -1166,6 +1289,11 @@ public class SOS implements CPU.TrapHandler
             result = result + ("BASE=" + registers[CPU.BASE] + " ");
             result = result + ("LIM=" + registers[CPU.LIM] + " ");
 
+            //Print the starve time statistics for this process
+            result = result + "\n\t\t\t";
+            result = result + " Max Starve Time: " + maxStarve;
+            result = result + " Avg Starve Time: " + avgStarve;
+        
             return result;
         }//toString
 
@@ -1239,5 +1367,4 @@ public class SOS implements CPU.TrapHandler
         }
 
     }// class DeviceInfo
-
 };// class SOS

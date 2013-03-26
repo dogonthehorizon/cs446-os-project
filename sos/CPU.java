@@ -61,6 +61,7 @@ public class CPU implements Runnable
 	public static final int NUMGENREG = PC; // the number of general registers
 	public static final int INSTRSIZE = 4;  // number of ints in a single instr +
 	// args.  (Set to a fixed value for simplicity.)
+	public static final int CLOCK_FREQ = 5; // The number of CPU cycles elapsed between interrupts.
 
 	//======================================================================
 	//Member variables
@@ -68,7 +69,7 @@ public class CPU implements Runnable
 	/**
 	 * specifies whether the CPU should output details of its work
 	 **/
-	private boolean m_verbose = true;
+	private boolean m_verbose = false;
 
 	/**
 	 * This array contains all the registers on the "chip".
@@ -83,6 +84,11 @@ public class CPU implements Runnable
 	private RAM m_RAM = null;
 	
 	private InterruptController m_IC = null;
+	
+	/**
+	 * How many CPU cycles hav eelapsed for this simulation.
+	 */
+	private int m_ticks;
 
 	//======================================================================
 	//Methods
@@ -93,7 +99,7 @@ public class CPU implements Runnable
 	 *
 	 * Intializes all member variables.
 	 */
-	public CPU(RAM ram, InterruptController initIC)
+	public CPU(RAM ram, InterruptController initIC) //TODO constructor
 	{
 		m_registers = new int[NUMREG];
 		for(int i = 0; i < NUMREG; i++)
@@ -102,6 +108,7 @@ public class CPU implements Runnable
 		}
 		m_RAM = ram;
 		m_IC = initIC;
+		m_ticks = 0;
 
 	}//CPU ctor
 
@@ -154,6 +161,15 @@ public class CPU implements Runnable
 	{
 		return m_registers;
 	}
+	
+	/**
+	 * getTicks
+	 * 
+	 * @return the number of seconds elapsed
+	 */
+	public int getTicks() {
+		return m_ticks;
+	}
 
 	/**
 	 * setPC
@@ -193,6 +209,15 @@ public class CPU implements Runnable
 	public void setLIM(int v)
 	{
 		m_registers[LIM] = v;
+	}
+	
+	/**
+	 * addTicks
+	 * 
+	 * Add a given number of ticks to the value of m_ticks
+	 */
+	public void addTicks(int num) {
+		m_ticks += num;
 	}
 
 	/**
@@ -288,7 +313,7 @@ public class CPU implements Runnable
 		    
 		    // Check the data bus for IO signals
 		    checkForIOInterrupt();
-
+		    
 			//fetch the program instruction from RAM using the PC
 			instruction = m_RAM.fetch(getPC());
 
@@ -373,9 +398,13 @@ public class CPU implements Runnable
 				m_TH.interruptIllegalInstruction(instruction);
 				break;          
 			}
+			
+			addTicks(1);
+		    if( getTicks()%CLOCK_FREQ == 0) {
+		    	m_TH.interruptClock();
+		    }
 
 			setPC(getPC() + 4);
-
 		}//run
 
 	}
@@ -495,6 +524,7 @@ public class CPU implements Runnable
         void systemCall();
         public void interruptIOReadComplete(int devID, int addr, int data);
         public void interruptIOWriteComplete(int devID, int addr);
+        public void interruptClock();
     };//interface TrapHandler
 
 

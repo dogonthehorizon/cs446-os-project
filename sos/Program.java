@@ -44,7 +44,7 @@ public class Program
 
     /**
      * identifies which line of a file is currently being parsed (handy for
-     * syntax error messages).
+     * syntax error messages)
      **/
     private int m_lineNum = 0;
 
@@ -58,6 +58,11 @@ public class Program
      * specifies whether the parser should output details of its work
      **/
     private boolean m_verbose = false;
+    
+    /**
+     * supports the new syscallExec
+     */
+    public int callCount = 0;
 
     /**
      * contructor does nothing special
