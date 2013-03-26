@@ -550,21 +550,21 @@ public class Program
         BufferedReader file=null;    // contains the pidgin asm
         try
         {
-            File f = new File(fileName);
-            if (!f.exists())
-            {
-                System.out.println("ERROR:  File " + fileName + " was not found.");
-                String currDir = System.getProperty("user.dir");
-                System.out.println("        (If you specified a relative path the current working directory is: " + currDir);
-                return -6;
-            }
-            
-            file = new BufferedReader(new FileReader(fileName));
+        	File f = new File(fileName);
+        	if (!f.exists())
+        	{
+        		System.out.println("ERROR:  File " + fileName + " was not found.");
+        		String currDir = System.getProperty("user.dir");
+        		System.out.println("        (If you specified a relative path the current working directory is: " + currDir);
+        		return -6;
+        	}
+        	
+        	file = new BufferedReader(new FileReader(fileName));
         }
         catch(java.security.AccessControlException ace)
         {
-            String s = "" + ace.getPermission();
-            System.out.println(s);
+        	String s = "" + ace.getPermission();
+        	System.out.println(s);
         }
         catch(IOException e)
         {

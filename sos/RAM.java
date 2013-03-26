@@ -13,7 +13,7 @@ import java.util.*;
  */
 public class RAM
 {
-    //member variables
+    //member veriables
     /**
      * The size of the RAM (expressed as a number of integers)
      **/
@@ -117,7 +117,7 @@ public class RAM
      *
      * saves an integer to the simulated RAM
      *
-     * @param addr  the address to write to
+     * @param addr  the addrss to write to
      * @param val   the value to write
      */
     public void write(int addr, int val)
@@ -130,7 +130,7 @@ public class RAM
                 Thread.sleep(0, m_latency);
             }
             catch(InterruptedException ie)
-            {/* do nothing*/}
+            {/* do nothing*/ }
         }
         
         m_mem[addr] = val;
