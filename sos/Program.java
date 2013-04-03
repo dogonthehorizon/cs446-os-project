@@ -58,6 +58,11 @@ public class Program
      * specifies whether the parser should output details of its work
      **/
     private boolean m_verbose = false;
+    
+    /**
+     * Number of times this program has been called
+     */
+    public int callCount = 0;
 
     /**
      * contructor does nothing special
