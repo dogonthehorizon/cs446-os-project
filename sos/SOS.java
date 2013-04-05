@@ -77,11 +77,6 @@ public class SOS implements CPU.TrapHandler
     public static final boolean m_verbose = true;
     
     /**
-     * Position to load the next program into.
-     **/
-    private int m_nextLoadPos;
-    
-    /**
      * ID for the next process to load.
      **/
     private int m_nextProcessID;
@@ -115,6 +110,11 @@ public class SOS implements CPU.TrapHandler
      * All programs currently running.
      **/
     private Vector<Program> m_programs = null;
+    
+    /**
+     * Contains a list of all the blocks of RAM that are not currently allocated to a process
+     */
+    private Vector<MemBlock> m_freeList = null;
 
     /*
      * ======================================================================
@@ -123,19 +123,20 @@ public class SOS implements CPU.TrapHandler
      */
 
     /**
-     * Inititalize member variables
+     * Initialize member variables
      */
     public SOS(CPU c, RAM r)
     {
         // Init member list
         m_CPU = c;
         m_RAM = r;
-        m_nextLoadPos = 0;
         m_nextProcessID = 1001;
         m_CPU.registerTrapHandler(this);        
         m_processes = new Vector<ProcessControlBlock>();
         m_devices = new Vector<DeviceInfo>();
         m_programs = new Vector<Program>();
+        m_freeList = new Vector<MemBlock>();
+        m_freeList.add(new MemBlock(0,m_RAM.getSize()));
     }// SOS ctor
 
     /**
@@ -193,6 +194,7 @@ public class SOS implements CPU.TrapHandler
     {
         debugPrintln("Removing process ID " + m_currProcess.getProcessId());
         m_processes.remove(m_currProcess);
+        freeCurrProcessMemBlock();
         scheduleNewProcess();
     }//removeCurrentProcess
 
@@ -311,6 +313,8 @@ public class SOS implements CPU.TrapHandler
      * creates a one instruction process that immediately exits.  This is used
      * to buy time until device I/O completes and unblocks a legitimate
      * process.
+     * 
+     * @see allocBlock()
      *
      */
     public void createIdleProcess()
@@ -321,7 +325,13 @@ public class SOS implements CPU.TrapHandler
                          15, 0, 0, 0 }; //TRAP
 
         //Initialize the starting position for this program
-        int baseAddr = m_nextLoadPos;
+        int memBlock = allocBlock(16);
+        if(memBlock == -1){
+        	System.out.println("Failed to allocate idle process of size " + 16 + ".");
+        	System.exit(-1);
+        }
+        
+        int baseAddr = memBlock;
 
         //Load the program into RAM
         for(int i = 0; i < progArr.length; i++)
@@ -393,7 +403,15 @@ public class SOS implements CPU.TrapHandler
             m_currProcess.save(m_CPU);
         }
         
-        m_CPU.setBASE(m_nextLoadPos);
+        int memBlock = allocBlock(allocSize);
+        if(memBlock == -1) {
+        	System.out.println("Failed to allocate memory of size " + allocSize + " for process " + m_nextProcessID);
+        	// We increment the PC to prevent an accidental shift back in syscallExec
+        	m_CPU.setPC(m_CPU.getPC() + CPU.INSTRSIZE);
+        	return;
+        }
+        
+        m_CPU.setBASE(memBlock);
         m_CPU.setLIM(m_CPU.getBASE() + allocSize);
         m_CPU.setPC(m_CPU.getBASE());
         m_CPU.setSP(m_CPU.getLIM()-1);
@@ -402,7 +420,7 @@ public class SOS implements CPU.TrapHandler
         if (m_CPU.getLIM() >= m_RAM.getSize())
         {
             debugPrintln("Process ID " + m_nextProcessID +
-                    "failed to load due to insufficient memory");
+                    " failed to load due to insufficient memory");
             System.exit(0);
         }
 
@@ -419,9 +437,9 @@ public class SOS implements CPU.TrapHandler
         m_processes.add(newProc);
         m_currProcess = newProc;
         m_currProcess.save(m_CPU);
+        printMemAlloc();
 
         // Prepare for the next process to load
-        m_nextLoadPos += allocSize;
         m_nextProcessID++;
     }// createProcess
     
@@ -970,9 +988,7 @@ public class SOS implements CPU.TrapHandler
         //Load the program into RAM
         createProcess(prog, allocSize);
 
-        //Adjust the PC since it's about to be incremented by the CPU
         m_CPU.setPC(m_CPU.getPC() - CPU.INSTRSIZE);
-
     }//syscallExec
 
     /**
@@ -1007,20 +1023,121 @@ public class SOS implements CPU.TrapHandler
         m_devices.add(new DeviceInfo(dev, id));
     }// registerDevice
     
-    //TODO mem management
-  //<insert method header here>
-    private int allocBlock(int size)
-    {
-        //%%%You will implement this method
-    
-        return -1;
+    /**
+     * allocBlock
+     * 
+     * @param size the requested allocation size
+     * @return the starting address of our allocated block
+     * 				OR
+     * 			return -1 if we couldn't allocate memory.
+     */
+    private int allocBlock(int size) {
+    	int totalFree = 0;
+    	
+    	for(MemBlock mb : m_freeList) {
+    		
+    		totalFree += mb.m_size;
+    		
+    		// We found a free block that's juuuuuust right.
+    		if(mb.m_size == size) {
+    			m_freeList.remove(mb);
+    			return mb.getAddr();
+    		} else if (mb.m_size > size ){
+    			// We found a free block that's Good Enough(tm).
+    			int returnAddress = mb.getAddr();
+    			
+    			// Shift our free block rather than removing
+    			// and allocating a new one.
+    			mb.m_size -= size;
+    			mb.m_addr += size;
+    			
+    			return returnAddress;
+    		}
+    	}//for-each
+    	
+    	// We ran out of memory :(
+		if (totalFree < size) {
+			return -1;
+		}
+		
+		//Clean up our memory subsystem
+		mergeFraggedProcesses();
+		mergeFraggedMemory();
+		
+		// Keep running until we find a proper memory block.
+		return allocBlock(size);
     }//allocBlock
-
-    //<insert method header here>
-    private void freeCurrProcessMemBlock()
-    {
-        //%%%You will implement this method
     
+    /**
+     * mergeFraggedMemory
+     * 
+     * This function compares a memory block with its immediate predecessor.
+     * If the two blocks are next to each other, we merge them; otherwise continues.
+     * 
+     */
+    private void mergeFraggedMemory() {
+    	Collections.sort(m_freeList);
+    	for(int i = 1; i < m_freeList.size(); i++){
+    		if (m_freeList.elementAt(i -1).m_addr + m_freeList.elementAt(i).m_size == m_freeList.elementAt(i).m_addr){
+    			m_freeList.elementAt(i - 1).m_size += m_freeList.elementAt(i).m_size; 
+    			m_freeList.removeElementAt(i);
+    			--i;
+    		}
+    	}
+    }//mergeFraggedMemory
+    
+    /**
+     * mergeFraggedProcesses
+     * 
+     * Merge fragmented processes into a continuous block of memory.
+     * 
+     */
+    // This suppress statement gets rid of those annoying
+    // yellow squiggles every time we access a static variable
+    // in m_CPU.
+    @SuppressWarnings("static-access")
+    private void mergeFraggedProcesses() {
+    	Collections.sort(m_processes);
+    	
+    	// This points to the end of our process block,
+    	// anything after endProcBlock is free memory.
+    	int endProcBlock = 0;
+    	for(ProcessControlBlock pcb : m_processes) {
+    		
+    		int procSize = pcb.registers[m_CPU.LIM] - pcb.registers[CPU.BASE];
+    		
+    		pcb.move(endProcBlock);
+    		endProcBlock += procSize;
+    	}//for-each
+    	
+    	// All of our processes are in one block of RAM, so clear the existing free
+    	// memory vector and fill it with the remaining free RAM.
+    	m_freeList.clear();
+    	m_freeList.add(new MemBlock( endProcBlock , m_RAM.getSize() - endProcBlock));
+    }//mergeFraggedProcesses
+
+    /**
+     * freeCurrProcessMemBlock
+     * 
+     * Frees the current processes memory block and then merges any
+     * contiguous free memory blocks.
+     * 
+     */
+    // This suppress statement gets rid of those annoying
+    // yellow squiggles every time we access a static variable
+    // in m_CPU.
+    @SuppressWarnings("static-access")
+    private void freeCurrProcessMemBlock() {
+    	
+    	int currBase =  m_currProcess.registers[m_CPU.BASE];
+    	int currLim = m_currProcess.registers[m_CPU.LIM];
+    	
+    	// Add a free memory block at the current BASE address and
+    	// make it the size of our current process.
+    	m_freeList.add(new MemBlock(currBase, currLim - currBase));
+    	
+    	mergeFraggedMemory();
+    	
     }//freeCurrProcessMemBlock
     
     /**
@@ -1034,8 +1151,7 @@ public class SOS implements CPU.TrapHandler
      * SIDE EFFECT:  The contents of m_freeList and m_processes are sorted.
      *
      */
-    private void printMemAlloc()
-    {
+    private void printMemAlloc() {
         //If verbose mode is off, do nothing
         if (!m_verbose) return;
 
@@ -1113,7 +1229,7 @@ public class SOS implements CPU.TrapHandler
      * 
      * This class contains information about a currently active process.
      */
-    private class ProcessControlBlock
+    private class ProcessControlBlock implements Comparable<ProcessControlBlock>
     {
         /**
          * a unique id for this process
@@ -1517,10 +1633,53 @@ public class SOS implements CPU.TrapHandler
             return result;
         }//toString
         
-      //<insert method header here> //TODO documentation
-        public boolean move(int newBase)
-        {
-            //%%%You will implement this method
+      /**
+       * move
+       * 
+       * Moves this process to the given address.
+       * 
+       * @param newBase the new address to move to
+       * @return true if the move was successful, false otherwise
+       */
+        // This suppress statement gets rid of those annoying
+        // yellow squiggles every time we access a static variable
+        // in m_CPU.
+        @SuppressWarnings("static-access")
+        public boolean move(int newBase) {
+        	
+        	// If we are currently the running process,
+        	// make sure we save our registers.
+        	if (this == m_currProcess) {
+        		m_currProcess.save(m_CPU);
+        	}
+        	
+        	int base = this.registers[m_CPU.BASE];
+        	int lim = this.registers[m_CPU.LIM];
+        	
+        	int shiftAmount = newBase - base; // the amount we need to shift our process by
+        	
+        	// Check for invalid memory access
+        	if ((newBase < 0) || ((lim + shiftAmount) > m_RAM.getSize()) ){
+        		return false;
+        	}
+        	
+        	// From the base to the limit of our process,
+        	// move everything according to our shiftAmount
+        	for(int i = base; i < lim; i++){
+        		m_RAM.write(shiftAmount + i, m_RAM.read(i));
+        	}
+        	// Don't forget to move the registers as well.
+        	this.registers[m_CPU.BASE] += shiftAmount;
+        	this.registers[m_CPU.LIM] += shiftAmount;
+        	this.registers[m_CPU.SP] += shiftAmount;
+        	this.registers[m_CPU.PC] += shiftAmount; 
+        	
+        	// Restore our current process.
+        	if(this == m_currProcess) {
+        		m_currProcess.restore(m_CPU);
+        	}
+        	
+        	debugPrintln("Process " + this.processId + " has moved from " + base + " to " + newBase);
         	return true;
         }//move
 
