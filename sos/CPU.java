@@ -88,6 +88,13 @@ public class CPU implements Runnable
 	
 	// Number of ticks that have passed during the simulation
 	private int m_ticks = 0;
+	
+	/**
+	 * Reference to an MMU object
+	 * 
+	 * @see MMU
+	 */
+	private MMU m_MMU = null;
 
 	//======================================================================
 	//Methods
@@ -98,7 +105,7 @@ public class CPU implements Runnable
 	 *
 	 * Intializes all member variables.
 	 */
-	public CPU(RAM ram, InterruptController initIC)
+	public CPU(RAM ram, InterruptController initIC, MMU mmu)
 	{
 		m_registers = new int[NUMREG];
 		for(int i = 0; i < NUMREG; i++)
@@ -107,6 +114,7 @@ public class CPU implements Runnable
 		}
 		m_RAM = ram;
 		m_IC = initIC;
+		m_MMU = mmu;
 
 	}//CPU ctor
 
@@ -316,7 +324,7 @@ public class CPU implements Runnable
 		    checkForIOInterrupt();
 
 			//fetch the program instruction from RAM using the PC
-			instruction = m_RAM.fetch(getPC());
+			instruction = m_MMU.fetch(getPC());
 
 			if(m_verbose) {
 				regDump();
@@ -386,11 +394,11 @@ public class CPU implements Runnable
 				break;
 			case LOAD:
 				isValidAddress(instruction[2]);
-				m_registers[instruction[1]] = m_RAM.read(instruction[2]);
+				m_registers[instruction[1]] = m_MMU.read(instruction[2]);
 				break;
 			case SAVE:
 				isValidAddress(instruction[2]);
-				m_RAM.write(instruction[2], m_registers[instruction[1]]);
+				m_MMU.write(instruction[2], m_registers[instruction[1]]);
 				break;
 			case TRAP:
 				m_TH.systemCall();
@@ -441,7 +449,7 @@ public class CPU implements Runnable
 	private boolean pop(int register) {
 		if (getSP() < getLIM() - 1) {
 			setSP(getSP() + 1);
-			m_registers[register] = m_RAM.read(getSP());
+			m_registers[register] = m_MMU.read(getSP());
 			return true;
 		}
 		else {
@@ -460,7 +468,7 @@ public class CPU implements Runnable
 	 */
 	private boolean push(int register) {
 		if (getSP() >= getBASE()) {
-			m_RAM.write(getSP(), m_registers[register]);
+			m_MMU.write(getSP(), m_registers[register]);
 			setSP(getSP() - 1);
 			return true;
 		}
@@ -551,6 +559,7 @@ public class CPU implements Runnable
     public void registerTrapHandler(TrapHandler th)
     {
         m_TH = th;
+        m_MMU.registerTrapHandler(th);
     }
     
     
