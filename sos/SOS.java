@@ -65,6 +65,9 @@ public class SOS implements CPU.TrapHandler
     // Amount by which a process's priority must exceed the current process's
     // priority in order to take over
     public static final int PRIORITY_THRESHOLD = 500;
+    
+    public static final int PAGE_TABLE_START = 0;
+    public static final int PAGE_TABLE_NULL = -999;
 
     // ======================================================================
     // Member variables
@@ -112,7 +115,8 @@ public class SOS implements CPU.TrapHandler
     private Vector<Program> m_programs = null;
     
     /**
-     * Contains a list of all the blocks of RAM that are not currently allocated to a process
+     * Contains a list of all the blocks of RAM that are not currently
+     * allocated to a process
      */
     private Vector<MemBlock> m_freeList = null;
     
@@ -120,6 +124,12 @@ public class SOS implements CPU.TrapHandler
      * Instance of an MMU...
      */
     private MMU m_MMU = null;
+    
+    /**
+     * The size of SOS's page table. Incidentally also the max address of the
+     * page table.
+     */
+    private int m_sizeOfPageTable;
 
     /* TODO
      * ======================================================================
@@ -135,15 +145,16 @@ public class SOS implements CPU.TrapHandler
         // Init member list
         m_CPU = c;
         m_RAM = r;
+        m_MMU = mmu;
         m_nextProcessID = 1001;
         m_CPU.registerTrapHandler(this);        
         m_processes = new Vector<ProcessControlBlock>();
         m_devices = new Vector<DeviceInfo>();
         m_programs = new Vector<Program>();
         m_freeList = new Vector<MemBlock>();
-        m_freeList.add(new MemBlock(0,m_MMU.getSize()));
-        // This is now an erroneous assumption ^^^ make room for the page table now
-        m_MMU = mmu;
+        // Initialize our page table
+        initPageTable();
+        m_freeList.add(new MemBlock(0,m_sizeOfPageTable));
     }// SOS ctor
 
     /**
@@ -1103,18 +1114,22 @@ public class SOS implements CPU.TrapHandler
      *----------------------------------------------------------------------
      */
 
-    //<Method Header Needed>
+    /**
+     * initPageTable
+     * 
+     * Initialize the area of RAM and then use the page table stuff
+     */
     private void initPageTable()
     {
-    	/*
-    	 * We could use an array to represent the page table
-    	 * since each time we run the OS we will have a fixed page table size.
-    	 * 
-    	 * Store a flag of sorts to signal a reference to an empty fragment.
-    	 * 
-    	 * We don't really have a swap space or anything...
-    	 */
-        //%%%You will implement this method
+    	m_sizeOfPageTable = m_MMU.getNumPages() * m_MMU.getPageSize();
+    	
+    	//We're gonna edit RAM directly.
+    	for(int i = 0; i < m_sizeOfPageTable; i++) {
+    		//TODO comment a little more
+    		// Map each value in RAM to the MMU
+    		m_MMU.write(i, i);
+    	}
+    	
     }//initPageTable
 
 
@@ -1171,7 +1186,16 @@ public class SOS implements CPU.TrapHandler
      * 			return -1 if we couldn't allocate memory.
      */
     private int allocBlock(int size) {
+    	
+//    	int numPagesRequired = size / m_MMU.getPageSize();
+    	
     	int totalFree = 0;
+    	
+//    	for(int i = PAGE_TABLE_START; i < m_sizeOfPageTable; i++) {
+//    		if(m_MMU.read(i) != PAGE_TABLE_NULL ) {
+//    			//do something
+//    		}
+//    	}
     	
     	for(MemBlock mb : m_freeList) {
     		
@@ -1218,9 +1242,11 @@ public class SOS implements CPU.TrapHandler
     private void mergeFraggedMemory() {
     	Collections.sort(m_freeList);
     	for(int i = 1; i < m_freeList.size(); i++){
-    		if (m_freeList.elementAt(i -1).m_addr + m_freeList.elementAt(i).m_size == m_freeList.elementAt(i).m_addr){
-    			m_freeList.elementAt(i - 1).m_size += m_freeList.elementAt(i).m_size; 
-    			m_freeList.removeElementAt(i);
+    		MemBlock previousBlock = m_freeList.elementAt(i -1);
+    		MemBlock currentBlock = m_freeList.elementAt(i);
+    		if (previousBlock.m_addr + currentBlock.m_size == currentBlock.m_addr){
+    			previousBlock.m_size += currentBlock.m_size; 
+    			m_freeList.removeElement(currentBlock);
     			--i;
     		}
     	}
@@ -1253,7 +1279,7 @@ public class SOS implements CPU.TrapHandler
     	// All of our processes are in one block of RAM, so clear the existing free
     	// memory vector and fill it with the remaining free RAM.
     	m_freeList.clear();
-    	m_freeList.add(new MemBlock( endProcBlock , m_MMU.getSize() - endProcBlock));
+    	m_freeList.add(new MemBlock( endProcBlock , m_sizeOfPageTable));
     }//mergeFraggedProcesses
 
     /**
