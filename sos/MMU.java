@@ -312,7 +312,14 @@ public class MMU
     	int offset  = virtAddr & m_offsetMask;
     	
     	// Compose our physical address based on the offset and the frame
-        return ( offset | m_pageMask ) & frame;
+    	
+    	// Shift the frame left so we can append the offset to obtain 
+    	// the physical address
+    	frame = frame << m_offsetSize;
+    	int physAddr = (frame | offset);
+    	
+    	//System.out.println("virt:" + virtAddr + "==>" + physAddr);
+        return physAddr;
     }//translate
 
     /**

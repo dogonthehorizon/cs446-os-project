@@ -114,7 +114,6 @@ public class KeyboardDevice implements Device, Runnable
         return false;
     }
      
-    
     /**
      * read
      *

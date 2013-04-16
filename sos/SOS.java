@@ -77,7 +77,7 @@ public class SOS implements CPU.TrapHandler
      * This flag causes the SOS to print lots of potentially helpful status
      * messages
      **/
-    public static final boolean m_verbose = false;
+    public static final boolean m_verbose = true;
     
     /**
      * ID for the next process to load.
@@ -425,7 +425,9 @@ public class SOS implements CPU.TrapHandler
        
         allocSize = enforceLegalAllocSize(allocSize);
         
+        printMemAlloc();
         int memBlock = allocBlock(allocSize);
+        printMemAlloc();
         if (allocSize % m_MMU.getPageSize() == 0) {
         	System.err.println("Base addr is " + memBlock);
         }
@@ -458,9 +460,9 @@ public class SOS implements CPU.TrapHandler
             //System.err.println(m_MMU.read(memBlock+i));
         }
         
-        for (int i = 0; i < memBlock+allocSize; i++) {
-        	System.err.println(m_MMU.read(memBlock+i));
-        }
+        //for (int i = 0; i < memBlock+allocSize; i++) {
+        	//System.err.println(m_MMU.read(memBlock+i));
+        //}
         
         // Load up the new process
         ProcessControlBlock newProc = new ProcessControlBlock(m_nextProcessID);
@@ -1146,7 +1148,7 @@ public class SOS implements CPU.TrapHandler
     	for(int i = 0; i < m_sizeOfPageTable; i++) {
     		//TODO comment a little more
     		// Map each value in RAM to the MMU
-    		m_MMU.write(i, i);
+    		m_RAM.write(i, i);
     	}
     	
     }//initPageTable
@@ -1205,6 +1207,7 @@ public class SOS implements CPU.TrapHandler
      * 			return -1 if we couldn't allocate memory.
      */
     private int allocBlock(int size) {
+    	
     	
     	int totalFree = 0;
     	
