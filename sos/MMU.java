@@ -307,7 +307,7 @@ public class MMU
      */
     private int translate(int virtAddr)
     {
-    	int pageNum = virtAddr >>> m_offsetSize;
+    	int pageNum = (virtAddr & m_pageMask) >>> m_offsetSize;
     	int frame = m_RAM.read(pageNum);
     	int offset  = virtAddr & m_offsetMask;
     	
