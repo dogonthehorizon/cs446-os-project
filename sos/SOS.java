@@ -1162,7 +1162,7 @@ public class SOS implements CPU.TrapHandler
         for(int i = 0; i < m_MMU.getNumPages(); i++)
         {
             int entry = m_MMU.read(i);
-            int status = entry & m_MMU.getStatusMask(); //TODO dafuq is this?
+            int status = entry & m_MMU.getStatusMask();
             int frame = entry & m_MMU.getPageMask();
 
             System.out.println("" + i + "-->" + frame);
