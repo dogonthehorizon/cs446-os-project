@@ -411,13 +411,10 @@ public class SOS implements CPU.TrapHandler {
 		int requiredPages = (allocSize / m_MMU.getPageSize()) + 1;
 		allocSize = requiredPages * m_MMU.getPageSize();
 
-		printMemAlloc();
 		int memBlock = allocBlock(allocSize);
-		printMemAlloc();
 
 		if (memBlock == -1) {
-			System.out.println("Failed to allocate memory of size " + allocSize
-			        + " for process " + m_nextProcessID);
+			printPageTable();
 			// We increment the PC to prevent an accidental shift back in
 			// syscallExec
 			m_CPU.setPC(m_CPU.getPC() + CPU.INSTRSIZE);
@@ -431,8 +428,8 @@ public class SOS implements CPU.TrapHandler {
 
 		// Make sure there is sufficient space in RAM
 		if (m_CPU.getLIM() >= m_MMU.getSize()) {
-			debugPrintln("Process ID " + m_nextProcessID
-			        + " failed to load due to insufficient memory");
+			printPageTable();
+			System.err.println("Whelp");
 			System.exit(0);
 		}
 
