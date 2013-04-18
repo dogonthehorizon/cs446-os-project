@@ -429,9 +429,6 @@ public class SOS implements CPU.TrapHandler
         printMemAlloc();
         int memBlock = allocBlock(allocSize);
         printMemAlloc();
-        if (allocSize % m_MMU.getPageSize() == 0) {
-        	System.err.println("Base addr is " + memBlock);
-        }
         if(memBlock == -1) {
         	System.out.println("Failed to allocate memory of size " + allocSize + " for process " + m_nextProcessID);
         	// We increment the PC to prevent an accidental shift back in syscallExec
@@ -458,12 +455,7 @@ public class SOS implements CPU.TrapHandler
         for (int i = 0; i < programInstructions.length; i++)
         {
             m_MMU.write(memBlock + i, programInstructions[i]);
-            //System.err.println(m_MMU.read(memBlock+i));
         }
-        
-        //for (int i = 0; i < memBlock+allocSize; i++) {
-        	//System.err.println(m_MMU.read(memBlock+i));
-        //}
         
         // Load up the new process
         ProcessControlBlock newProc = new ProcessControlBlock(m_nextProcessID);
@@ -1293,7 +1285,7 @@ public class SOS implements CPU.TrapHandler
     	// All of our processes are in one block of RAM, so clear the existing free
     	// memory vector and fill it with the remaining free RAM.
     	m_freeList.clear();
-    	m_freeList.add(new MemBlock( endProcBlock , m_sizeOfPageTable));
+    	m_freeList.add(new MemBlock( endProcBlock , m_MMU.getSize()));
     }//mergeFraggedProcesses
 
     /**
@@ -1316,6 +1308,7 @@ public class SOS implements CPU.TrapHandler
     	// make it the size of our current process.
     	m_freeList.add(new MemBlock(currBase, currLim - currBase));
     	
+    	mergeFraggedProcesses();
     	mergeFraggedMemory();
     	
     }//freeCurrProcessMemBlock
