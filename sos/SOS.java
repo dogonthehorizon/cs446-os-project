@@ -1773,8 +1773,6 @@ public class SOS implements CPU.TrapHandler
         			m_RAM.write(newFrame, currFrame);
                 	m_RAM.write(currFrame, newFrame);
         		}
-        		
-        		m_MMU.write(i + newBase, m_MMU.read(i + base));
         	}
         	
         	int shiftAmount = newBase - base; // the amount we need to shift our process by
