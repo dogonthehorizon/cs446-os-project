@@ -476,10 +476,8 @@ public class SOS implements CPU.TrapHandler
     }// createProcess
     
     private int enforceLegalAllocSize(int size) {
-        // While the allocSize is not a multiple of page size, add one to it.
-        while ((size % m_MMU.getPageSize()) != 0) {
-        	size += 1;
-        }
+        size /= m_MMU.getPageSize();
+        size++;
         return size;
     }
     
