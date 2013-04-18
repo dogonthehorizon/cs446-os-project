@@ -424,6 +424,7 @@ public class SOS implements CPU.TrapHandler
         }
        
         allocSize = enforceLegalAllocSize(allocSize);
+        allocSize *= m_MMU.getPageSize();
         
         printMemAlloc();
         int memBlock = allocBlock(allocSize);
