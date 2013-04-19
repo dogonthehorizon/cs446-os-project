@@ -14,6 +14,7 @@ import java.util.*;
  * @author Daniel Jones
  * @author Raphael Ramos
  * @author Scott Matsuo
+ * @author Hailee Kenney
  * @author Fernando Freire
  * 
  * @version April 18, 2013

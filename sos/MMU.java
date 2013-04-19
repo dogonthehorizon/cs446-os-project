@@ -13,6 +13,11 @@ import java.util.*;
  * contain a frame number (if valid) plus a state (see the constants defined
  * below).
  * 
+ * @author Hailee Kenney
+ * @author Fernando Freire
+ * 
+ * @version April 18, 2013
+ * 
  * @see CPU
  * @see SOS
  * @see RAM

@@ -15,6 +15,7 @@ import java.util.*;
  * @author Daniel Jones
  * @author Raphael Ramos
  * @author Scott Matsuo
+ * @author Hailee Kenney
  * @author Fernando Freire
  * 
  * @version April 18, 2013
@@ -152,7 +153,7 @@ public class SOS implements CPU.TrapHandler {
 		m_programs = new Vector<Program>();
 		m_freeList = new Vector<MemBlock>();
 		initPageTable();
-		m_freeList.add(new MemBlock(m_sizeOfPageTable, m_MMU.getSize()));
+		m_freeList.add(new MemBlock(m_sizeOfPageTable, (m_MMU.getSize()-m_sizeOfPageTable)));
 	}// SOS ctor
 
 	/**
@@ -332,9 +333,8 @@ public class SOS implements CPU.TrapHandler {
 		int memBlock = allocBlock(allocSize);
 
 		if (memBlock == -1) {
-			System.out.println("Failed to allocate idle process of size " + 16
-			        + ".");
-			System.exit(-1);
+			System.out.println("Failed to allocate idle process of size " + 16);
+			return;
 		}
 
 		int baseAddr = memBlock;
@@ -425,13 +425,6 @@ public class SOS implements CPU.TrapHandler {
 		m_CPU.setLIM(m_CPU.getBASE() + allocSize);
 		m_CPU.setPC(m_CPU.getBASE());
 		m_CPU.setSP(m_CPU.getLIM() - 1);
-
-		// Make sure there is sufficient space in RAM
-		if (m_CPU.getLIM() >= m_MMU.getSize()) {
-			printPageTable();
-			System.err.println("Whelp");
-			System.exit(0);
-		}
 
 		// move through the allocated memory and load the program instructions
 		// into RAM,
@@ -907,7 +900,7 @@ public class SOS implements CPU.TrapHandler {
 	private void syscallExec() {
 		// If there is nothing to run, abort. This should never happen.
 		if (m_programs.size() == 0) {
-			System.err.println("ERROR!  syscallExec has no programs to run.");
+			debugPrintln("Error! syscallExec has no programs to run.");
 			System.exit(-1);
 		}
 
@@ -1062,7 +1055,6 @@ public class SOS implements CPU.TrapHandler {
 	private void initPageTable() {
 
 		m_sizeOfPageTable = m_MMU.getNumPages();
-		//(i*m_sizeOfPageTable)
 
 		for (int i = 0; i < m_sizeOfPageTable; i++) {
 			m_RAM.write(i, i);
@@ -1152,7 +1144,6 @@ public class SOS implements CPU.TrapHandler {
 
 		// Clean up our memory subsystem
 		mergeFraggedProcesses();
-		mergeFraggedMemory();
 
 		// Keep running until we find a proper memory block.
 		return allocBlock(size);
@@ -1206,10 +1197,9 @@ public class SOS implements CPU.TrapHandler {
 		}// for-each
 
 		// All of our processes are in one block of RAM, so clear the existing
-		// free
-		// memory vector and fill it with the remaining free RAM.
+		// free memory vector and fill it with the remaining free RAM.
 		m_freeList.clear();
-		m_freeList.add(new MemBlock(endProcBlock, m_MMU.getSize()));
+		m_freeList.add(new MemBlock(endProcBlock, (m_MMU.getSize() - endProcBlock)));
 	}// mergeFraggedProcesses
 
 	/**
@@ -1639,7 +1629,6 @@ public class SOS implements CPU.TrapHandler {
 		// in m_CPU.
 		@SuppressWarnings("static-access")
 		public boolean move(int newBase) {
-			System.err.println("newBase is " + newBase + " and curr base is " + this.registers[m_CPU.BASE]);
 			// If we are currently the running process,
 			// make sure we save our registers.
 			if (this == m_currProcess) {
@@ -1648,28 +1637,36 @@ public class SOS implements CPU.TrapHandler {
 			
 			int base = this.registers[m_CPU.BASE];
 			int lim = this.registers[m_CPU.LIM];
+			
+			// We don't want to make any unnecessary moves in the MMU, so
+			// let's just return.
+			if (newBase == base ) return true;
 
 			// Check for invalid memory access
-			if ((newBase < 0) || ((newBase + lim) > m_MMU.getSize())) {
+			if ((newBase < 0) || ((newBase + (lim - base)) > m_MMU.getSize())) {
 				return false;
 			}
 
-			// From the base to the limit of our process,
-			// move everything according to our shiftAmount
-			for (int i = 0; i + base < lim; i++) {
-				// If the current base is a multiple of page size, we need
-				// to swap the frame references.
-				if ((i + base) % m_MMU.getPageSize() == 0) {
-					int currFrame = getFrameNum(i + base);
-					int newFrame = getFrameNum(i + newBase);
-					
-					m_RAM.write(newFrame, currFrame);
-					m_RAM.write(currFrame, newFrame);
-				}
+			// The starting page number of our process.
+			int startPageNum = base / m_MMU.getPageSize();
+			// The target page number for our process.
+			int newPageNum = newBase / m_MMU.getPageSize();
+			// The total number of pages our process occupies.
+			int totalPages = (lim - base) / m_MMU.getPageSize();
+			
+			// Let's swap some page numbers/frames
+			for(int i = 0; i < totalPages; i++) {
+				
+				int val1 = m_MMU.read(startPageNum + i);
+				int val2 = m_MMU.read(newPageNum + i);
+				
+				m_RAM.write(newPageNum + i, val1);
+				m_RAM.write(startPageNum + i, val2);
 			}
-
+			
 			int shiftAmount = newBase - base; // the amount we need to shift our
 											  // process by
+			
 			// Don't forget to move the registers as well.
 			this.registers[m_CPU.BASE] += shiftAmount;
 			this.registers[m_CPU.LIM] += shiftAmount;
@@ -1687,12 +1684,6 @@ public class SOS implements CPU.TrapHandler {
 		}// move
 
 	}// class ProcessControlBlock
-
-	private int getFrameNum(int virtAddr) {
-		int pageNum = (virtAddr & m_MMU.getPageMask()) >>> m_MMU
-		        .getOffsetSize();
-		return m_RAM.read(pageNum);
-	}
 
 	/**
 	 * class DeviceInfo
