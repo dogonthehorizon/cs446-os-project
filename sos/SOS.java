@@ -1062,6 +1062,7 @@ public class SOS implements CPU.TrapHandler {
 	private void initPageTable() {
 
 		m_sizeOfPageTable = m_MMU.getNumPages();
+		//(i*m_sizeOfPageTable)
 
 		for (int i = 0; i < m_sizeOfPageTable; i++) {
 			m_RAM.write(i, i);
@@ -1085,11 +1086,9 @@ public class SOS implements CPU.TrapHandler {
 		        .println("\n----------========== Page Table ==========----------");
 
 		for (int i = 0; i < m_MMU.getNumPages(); i++) {
-			int entry = m_MMU.read(i);
-			int status = entry & m_MMU.getStatusMask();
-			int frame = entry & m_MMU.getPageMask();
+			int entry = m_RAM.read(i);
 
-			System.out.println("" + i + "-->" + frame);
+			System.out.println("" + i + "-->" + entry);
 		}
 
 		// Print a footer
@@ -1640,13 +1639,13 @@ public class SOS implements CPU.TrapHandler {
 		// in m_CPU.
 		@SuppressWarnings("static-access")
 		public boolean move(int newBase) {
-
+			System.err.println("newBase is " + newBase + " and curr base is " + this.registers[m_CPU.BASE]);
 			// If we are currently the running process,
 			// make sure we save our registers.
 			if (this == m_currProcess) {
 				m_currProcess.save(m_CPU);
 			}
-
+			
 			int base = this.registers[m_CPU.BASE];
 			int lim = this.registers[m_CPU.LIM];
 
@@ -1663,6 +1662,7 @@ public class SOS implements CPU.TrapHandler {
 				if ((i + base) % m_MMU.getPageSize() == 0) {
 					int currFrame = getFrameNum(i + base);
 					int newFrame = getFrameNum(i + newBase);
+					
 					m_RAM.write(newFrame, currFrame);
 					m_RAM.write(currFrame, newFrame);
 				}
